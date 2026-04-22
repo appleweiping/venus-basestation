@@ -1,0 +1,14 @@
+[project]
+name = "venus-basestation"
+version = "0.1.0"
+description = "Base-station software and visualization dashboard for a Venus robotics exploration project."
+requires-python = ">=3.10"
+dependencies = [
+  "paho-mqtt>=2.1.0",
+  "matplotlib>=3.8.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
