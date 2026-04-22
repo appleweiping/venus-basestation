@@ -218,3 +218,4 @@ credentials.*
 data/*.jsonl
 !examples/*.jsonl
 screenshots/
+outputs/

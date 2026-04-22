@@ -16,15 +16,51 @@ The project receives robot observations, maintains a simple world model, and vis
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+if (Test-Path .\.venv\Scripts\Activate.ps1) { .\.venv\Scripts\Activate.ps1 } else { .\.venv\bin\Activate.ps1 }
 pip install -r requirements.txt
+$env:PYTHONPATH="src"
 python -m venus_basestation --source simulated
+```
+
+For the optional interactive dashboard and PNG export:
+
+```powershell
+pip install -r requirements-dashboard.txt
 ```
 
 For a headless smoke run:
 
 ```powershell
 python -m venus_basestation --source simulated --headless --steps 20
+```
+
+Replay the example JSONL file and export a state summary:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-state outputs\sample_state.json
+```
+
+Export a PNG dashboard snapshot without opening an interactive window:
+
+```powershell
+$env:PYTHONPATH="src"
+$env:MPLBACKEND="Agg"
+python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-figure outputs\sample_dashboard.png
+```
+
+If `matplotlib` is not available, you can still export a clean SVG snapshot using only the standard library:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-figure outputs\sample_dashboard.svg
+```
+
+Generate a fake JSONL stream for testing:
+
+```powershell
+$env:PYTHONPATH="src"
+python tools\generate_fake_jsonl.py outputs\fake_messages.jsonl --count 60
 ```
 
 ## Project Layout
@@ -43,6 +79,22 @@ examples/
   sample_messages.jsonl
 tests/
 ```
+
+## What Already Works
+
+This repository already supports:
+
+- simulated robot messages
+- JSON/JSONL replay
+- message validation
+- in-memory map state
+- robot path tracking
+- object plotting
+- state export to JSON
+- dashboard figure export
+- SVG snapshot export without extra plotting dependencies
+- basic automated tests
+- latest per-robot status snapshot export
 
 ## Message Flow
 
@@ -65,3 +117,28 @@ Use environment variables or a local ignored file for real MQTT credentials:
 - `VENUS_MQTT_PASSWORD`
 - `VENUS_MQTT_TOPICS`
 
+## Next Team-Dependent Steps
+
+The main things still needed from teammates are:
+
+- exact MQTT topics
+- final payload format
+- coordinate system agreement
+- a few sample real messages
+
+## Current Integration Boundary
+
+You can already build and test everything up to this boundary without teammates:
+
+- parser and validation
+- fake message generation
+- JSONL replay
+- map state updates
+- state export
+- dashboard rendering
+
+When teammate input arrives, the main work left should only be:
+
+- replacing fake/replay input with real MQTT topics
+- aligning the final payload fields
+- aligning the agreed coordinate system

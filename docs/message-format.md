@@ -41,6 +41,30 @@ The recommended payload format is JSON.
 }
 ```
 
+## Status Message
+
+```json
+{
+  "robot_id": "robot_2",
+  "event_type": "status",
+  "battery": 82,
+  "mode": "exploring",
+  "timestamp": 15.4
+}
+```
+
+Status messages are optional but useful for the base station. The current prototype stores the latest status payload per robot in the exported state summary.
+
+## Current Prototype Assumptions
+
+The current base-station prototype already supports:
+
+- `robot_position` messages updating robot tracks
+- `rock`, `cliff`, `boundary`, and `mountain` observations updating map objects
+- `status` messages updating the latest per-robot status snapshot
+- JSONL replay for offline testing
+- SVG snapshot export without extra plotting dependencies
+
 ## Coordinate System
 
 Initial assumption:
@@ -63,3 +87,14 @@ The course manual describes PYNQ bridge topics in this general form:
 
 The exact module identifiers and credentials should stay out of Git.
 
+## Integration Checklist
+
+Before connecting to the real robots, the team should confirm:
+
+- exact publish topic per robot
+- exact payload shape
+- coordinate origin
+- units
+- robot identifiers
+- duplicate observation behavior
+- how uncertainty should be represented

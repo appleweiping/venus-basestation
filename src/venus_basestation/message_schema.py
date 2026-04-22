@@ -45,11 +45,16 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
     if event_type not in VALID_EVENT_TYPES:
         raise ValueError(f"unsupported event_type: {event_type!r}")
 
+    x = _optional_float(data.get("x"))
+    y = _optional_float(data.get("y"))
+    if event_type in {"robot_position", "rock", "cliff", "boundary", "mountain"} and (x is None or y is None):
+        raise ValueError(f"x and y are required for event_type {event_type!r}")
+
     return Observation(
         robot_id=robot_id,
         event_type=event_type,
-        x=_optional_float(data.get("x")),
-        y=_optional_float(data.get("y")),
+        x=x,
+        y=y,
         timestamp=_optional_float(data.get("timestamp")),
         color=_optional_str(data.get("color")),
         size=_optional_str(data.get("size")),
@@ -70,4 +75,3 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
-

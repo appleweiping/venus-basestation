@@ -4,6 +4,7 @@ from collections.abc import Iterator
 import json
 import math
 import time
+from typing import Any
 
 
 def simulated_messages(count: int | None = None, delay: float = 0.0) -> Iterator[str]:
@@ -52,3 +53,6 @@ def simulated_messages(count: int | None = None, delay: float = 0.0) -> Iterator
         if delay:
             time.sleep(delay)
 
+
+def simulated_message_dicts(count: int = 40) -> list[dict[str, Any]]:
+    return [json.loads(message) for message in simulated_messages(count=count, delay=0.0)]

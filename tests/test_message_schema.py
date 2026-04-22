@@ -28,3 +28,11 @@ def test_rejects_unknown_event_type() -> None:
     else:
         raise AssertionError("expected ValueError")
 
+
+def test_requires_coordinates_for_rock() -> None:
+    try:
+        parse_observation({"robot_id": "robot_1", "event_type": "rock"})
+    except ValueError as exc:
+        assert "x and y are required" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
