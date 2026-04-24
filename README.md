@@ -22,7 +22,9 @@ $env:PYTHONPATH="src"
 python -m venus_basestation --source simulated
 ```
 
-For the optional interactive dashboard and PNG export:
+This launches the built-in Tkinter desktop UI, which does not require extra GUI dependencies.
+
+For the optional matplotlib dashboard and PNG export:
 
 ```powershell
 pip install -r requirements-dashboard.txt
@@ -32,6 +34,20 @@ For a headless smoke run:
 
 ```powershell
 python -m venus_basestation --source simulated --headless --steps 20
+```
+
+Explicitly use the Tkinter UI:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source simulated --ui tk --steps 30
+```
+
+Use the matplotlib dashboard if you installed the dashboard extras:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source simulated --ui matplotlib --steps 30
 ```
 
 Replay the example JSONL file and export a state summary:
@@ -73,6 +89,7 @@ src/venus_basestation/
   map_state.py         In-memory world model
   message_schema.py    Message parsing and validation
   mqtt_client.py       MQTT subscriber wrapper
+  tk_dashboard.py      Desktop UI built with Tkinter
 docs/
   message-format.md    Shared data contract for robot-side integration
 examples/
@@ -90,6 +107,7 @@ This repository already supports:
 - in-memory map state
 - robot path tracking
 - object plotting
+- live desktop UI with map, robot status, and recent event feed
 - state export to JSON
 - dashboard figure export
 - SVG snapshot export without extra plotting dependencies
@@ -134,6 +152,7 @@ You can already build and test everything up to this boundary without teammates:
 - fake message generation
 - JSONL replay
 - map state updates
+- Tkinter UI
 - state export
 - dashboard rendering
 

@@ -27,11 +27,13 @@ class MapState:
     robots: dict[str, RobotTrack] = field(default_factory=dict)
     objects: list[MapObject] = field(default_factory=list)
     statuses: dict[str, dict] = field(default_factory=dict)
+    recent_events: list[dict] = field(default_factory=list)
     messages_seen: int = 0
     _object_keys: set[tuple[str, float, float, str]] = field(default_factory=set)
 
     def apply(self, observation: Observation) -> None:
         self.messages_seen += 1
+        self._record_event(observation)
         if observation.event_type == "robot_position":
             self._apply_robot_position(observation)
             return
@@ -73,6 +75,14 @@ class MapState:
         payload.setdefault("event_type", observation.event_type)
         self.statuses[observation.robot_id] = payload
 
+    def _record_event(self, observation: Observation) -> None:
+        payload = dict(observation.raw or {})
+        payload.setdefault("robot_id", observation.robot_id)
+        payload.setdefault("event_type", observation.event_type)
+        self.recent_events.append(payload)
+        if len(self.recent_events) > 25:
+            self.recent_events = self.recent_events[-25:]
+
     def bounds(self) -> tuple[float, float, float, float] | None:
         xs: list[float] = []
         ys: list[float] = []
@@ -95,6 +105,7 @@ class MapState:
                 for robot_id, positions in self.robots.items()
             },
             "statuses": self.statuses,
+            "recent_events": self.recent_events,
             "objects": [
                 {
                     "event_type": obj.event_type,
@@ -108,6 +119,36 @@ class MapState:
                 for obj in self.objects
             ],
         }
+
+    def object_counts(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for obj in self.objects:
+            counts[obj.event_type] = counts.get(obj.event_type, 0) + 1
+        return counts
+
+    def recent_event_lines(self, limit: int = 8) -> list[str]:
+        lines: list[str] = []
+        for payload in self.recent_events[-limit:]:
+            robot_id = str(payload.get("robot_id", "?"))
+            event_type = str(payload.get("event_type", "event"))
+            if event_type == "rock":
+                detail_parts = [str(payload.get("color", "")), str(payload.get("size", ""))]
+                if payload.get("temperature") is not None:
+                    detail_parts.append(f"{payload['temperature']}C")
+                detail = " ".join(part for part in detail_parts if part)
+                lines.append(f"{robot_id}: rock {detail}".strip())
+            elif event_type == "robot_position":
+                x = payload.get("x")
+                y = payload.get("y")
+                lines.append(f"{robot_id}: position ({x}, {y})")
+            elif event_type == "status":
+                mode = payload.get("mode", "status")
+                battery = payload.get("battery")
+                suffix = f" battery={battery}" if battery is not None else ""
+                lines.append(f"{robot_id}: {mode}{suffix}")
+            else:
+                lines.append(f"{robot_id}: {event_type}")
+        return lines
 
 
 def _label_for(observation: Observation) -> str:

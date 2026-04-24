@@ -23,6 +23,17 @@ def simulated_messages(count: int | None = None, delay: float = 0.0) -> Iterator
             }
         )
 
+        if step % 6 == 0:
+            yield json.dumps(
+                {
+                    "robot_id": robot_id,
+                    "event_type": "status",
+                    "mode": "exploring" if step % 12 else "scanning",
+                    "battery": max(35, 100 - step * 2),
+                    "timestamp": step + 0.05,
+                }
+            )
+
         if step in {5, 12, 18}:
             yield json.dumps(
                 {
@@ -46,6 +57,28 @@ def simulated_messages(count: int | None = None, delay: float = 0.0) -> Iterator
                     "x": round(x - 0.2, 3),
                     "y": round(y + 0.2, 3),
                     "timestamp": step + 0.2,
+                }
+            )
+
+        if step in {10, 20}:
+            yield json.dumps(
+                {
+                    "robot_id": robot_id,
+                    "event_type": "boundary",
+                    "x": round(x + 0.35, 3),
+                    "y": round(y - 0.1, 3),
+                    "timestamp": step + 0.25,
+                }
+            )
+
+        if step in {14, 22}:
+            yield json.dumps(
+                {
+                    "robot_id": robot_id,
+                    "event_type": "mountain",
+                    "x": round(x - 0.25, 3),
+                    "y": round(y - 0.2, 3),
+                    "timestamp": step + 0.3,
                 }
             )
 

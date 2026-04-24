@@ -45,3 +45,12 @@ def test_tracks_latest_status_per_robot() -> None:
 
     assert state.statuses["robot_1"]["battery"] == 78
     assert state.to_dict()["statuses"]["robot_1"]["mode"] == "idle"
+
+
+def test_recent_events_are_capped() -> None:
+    state = MapState()
+    for index in range(30):
+        state.apply(parse_observation({"robot_id": "robot_1", "event_type": "status", "battery": index}))
+
+    assert len(state.recent_events) == 25
+    assert state.recent_events[0]["battery"] == 5

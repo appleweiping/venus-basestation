@@ -9,6 +9,7 @@ from .io_utils import iter_jsonl_messages, write_state_summary
 from .map_state import MapState
 from .message_schema import parse_observation
 from .mqtt_client import MqttSubscriber, mqtt_config_from_env
+from .tk_dashboard import TkDashboard
 from .svg_snapshot import write_svg_snapshot
 
 
@@ -16,6 +17,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", choices=["simulated", "mqtt", "jsonl"], default="simulated")
     parser.add_argument("--headless", action="store_true", help="Process data without opening a dashboard window.")
+    parser.add_argument(
+        "--ui",
+        choices=["tk", "matplotlib"],
+        default="tk",
+        help="Interactive UI to use when not running headless.",
+    )
     parser.add_argument("--steps", type=int, default=40, help="Number of simulated steps to run.")
     parser.add_argument("--delay", type=float, default=0.05, help="Delay between simulated steps.")
     parser.add_argument("--jsonl-path", help="Replay a JSONL file when using --source jsonl.")
@@ -26,8 +33,8 @@ def main() -> None:
     state = MapState()
     figure_path = Path(args.save_figure) if args.save_figure else None
     wants_svg_only = figure_path is not None and figure_path.suffix.lower() == ".svg"
-    needs_dashboard = not args.headless or (figure_path is not None and not wants_svg_only)
-    dashboard = MatplotlibDashboard() if needs_dashboard else None
+    needs_dashboard = (not args.headless and args.ui in {"tk", "matplotlib"}) or (figure_path is not None and not wants_svg_only)
+    dashboard = _build_dashboard(args.ui, needs_dashboard, allow_matplotlib_export=figure_path is not None and not wants_svg_only)
 
     def handle(payload: str | bytes) -> None:
         observation = parse_observation(payload)
@@ -64,7 +71,7 @@ def main() -> None:
     subscriber.run_forever()
 
 
-def _finish(state: MapState, dashboard: MatplotlibDashboard | None, save_figure: str | None, save_state: str | None, *, show: bool) -> None:
+def _finish(state: MapState, dashboard, save_figure: str | None, save_state: str | None, *, show: bool) -> None:
     print(f"processed {state.messages_seen} messages")
     if save_state:
         path = write_state_summary(save_state, state)
@@ -83,6 +90,14 @@ def _finish(state: MapState, dashboard: MatplotlibDashboard | None, save_figure:
         print(f"wrote svg snapshot to {path}")
     if dashboard and show:
         dashboard.show()
+
+
+def _build_dashboard(ui: str, needs_dashboard: bool, *, allow_matplotlib_export: bool):
+    if not needs_dashboard:
+        return None
+    if ui == "tk" and not allow_matplotlib_export:
+        return TkDashboard()
+    return MatplotlibDashboard()
 
 
 if __name__ == "__main__":
