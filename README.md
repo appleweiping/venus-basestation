@@ -79,6 +79,13 @@ $env:PYTHONPATH="src"
 python tools\generate_fake_jsonl.py outputs\fake_messages.jsonl --count 60
 ```
 
+Run the automated tests:
+
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
 ## Project Layout
 
 ```text

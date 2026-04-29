@@ -19,7 +19,7 @@ class MatplotlibDashboard:
             import matplotlib.pyplot as plt
         except ModuleNotFoundError as exc:  # pragma: no cover - dependency guidance
             raise SystemExit(
-                "matplotlib is required for the dashboard. Run `pip install -r requirements.txt` first."
+                "matplotlib is required for the dashboard. Run `pip install -r requirements-dashboard.txt` first."
             ) from exc
 
         self.plt = plt
