@@ -14,6 +14,15 @@ VALID_EVENT_TYPES = {
     "status",
 }
 
+TEAM_MESSAGE_TYPE_ALIASES = {
+    "position_update": "robot_position",
+    "rock_detected": "rock",
+    "cliff_detected": "cliff",
+    "boundary_detected": "boundary",
+    "mountain_detected": "mountain",
+    "status_update": "status",
+}
+
 
 @dataclass(frozen=True)
 class Observation:
@@ -37,6 +46,7 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
     else:
         data = dict(payload)
 
+    data = normalize_team_payload(data)
     robot_id = str(data.get("robot_id", "")).strip()
     event_type = str(data.get("event_type", "")).strip()
 
@@ -62,6 +72,19 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
         confidence=_optional_float(data.get("confidence")),
         raw=data,
     )
+
+
+def normalize_team_payload(data: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(data)
+    if not str(normalized.get("event_type", "")).strip():
+        message_type = str(normalized.get("type", "")).strip()
+        if message_type in TEAM_MESSAGE_TYPE_ALIASES:
+            normalized["event_type"] = TEAM_MESSAGE_TYPE_ALIASES[message_type]
+
+    if normalized.get("event_type") == "robot_position" and "heading" not in normalized and "heading_deg" in normalized:
+        normalized["heading"] = normalized["heading_deg"]
+
+    return normalized
 
 
 def _optional_float(value: Any) -> float | None:

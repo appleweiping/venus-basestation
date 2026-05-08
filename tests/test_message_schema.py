@@ -20,6 +20,43 @@ def test_parse_rock_observation() -> None:
     assert obs.temperature == 24.5
 
 
+def test_accepts_communication_position_update_payload() -> None:
+    obs = parse_observation(
+        {
+            "robot_id": "A",
+            "type": "position_update",
+            "x": 3,
+            "y": 5,
+            "heading": 90,
+        }
+    )
+
+    assert obs.robot_id == "A"
+    assert obs.event_type == "robot_position"
+    assert obs.x == 3.0
+    assert obs.raw["type"] == "position_update"
+
+
+def test_accepts_communication_rock_detected_payload() -> None:
+    obs = parse_observation(
+        {
+            "robot_id": "A",
+            "type": "rock_detected",
+            "x": 3,
+            "y": 5,
+            "distance_mm": 120,
+            "color": "red",
+            "size": "small",
+            "temperature": 28.5,
+        }
+    )
+
+    assert obs.event_type == "rock"
+    assert obs.color == "red"
+    assert obs.temperature == 28.5
+    assert obs.raw["distance_mm"] == 120
+
+
 def test_rejects_unknown_event_type() -> None:
     try:
         parse_observation({"robot_id": "robot_1", "event_type": "unknown"})

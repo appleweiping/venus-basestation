@@ -57,6 +57,13 @@ $env:PYTHONPATH="src"
 python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-state outputs\sample_state.json
 ```
 
+Replay the current Team 28 communication-module sample format:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source jsonl --jsonl-path examples\team28_communication_messages.jsonl --headless --save-state outputs\team28_state.json
+```
+
 Export a PNG dashboard snapshot without opening an interactive window:
 
 ```powershell
@@ -110,6 +117,7 @@ This repository already supports:
 
 - simulated robot messages
 - JSON/JSONL replay
+- Team 28 communication-module payload compatibility (`type=position_update`, `type=rock_detected`)
 - message validation
 - in-memory map state
 - robot path tracking

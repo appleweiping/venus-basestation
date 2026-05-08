@@ -1,0 +1,4 @@
+{"robot_id":"A","type":"position_update","x":0,"y":0,"heading":90}
+{"robot_id":"A","type":"position_update","x":1,"y":0,"heading":90}
+{"robot_id":"A","type":"rock_detected","x":1,"y":0,"distance_mm":120,"color":"red","size":"small","temperature":28.5}
+{"robot_id":"A","type":"position_update","x":2,"y":0,"heading":90}

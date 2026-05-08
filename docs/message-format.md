@@ -87,6 +87,59 @@ The course manual describes PYNQ bridge topics in this general form:
 
 The exact module identifiers and credentials should stay out of Git.
 
+The Team 28 communication branch currently uses the TU/e broker and prototype
+topic below in its MQTT test scripts:
+
+```text
+VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
+VENUS_MQTT_TOPICS=/PYNQBRIDGE/YOUR_MODULE/SEND
+```
+
+Replace `YOUR_MODULE` with the final bridge module identifier once the team
+confirms it.
+
+## Team 28 Compatibility Payloads
+
+The communication module prototype currently publishes these JSON shapes. The
+base-station parser accepts them and normalizes them internally to the event
+types above.
+
+Position update:
+
+```json
+{
+  "robot_id": "A",
+  "type": "position_update",
+  "x": 3,
+  "y": 5,
+  "heading": 90
+}
+```
+
+Rock detection:
+
+```json
+{
+  "robot_id": "A",
+  "type": "rock_detected",
+  "x": 3,
+  "y": 5,
+  "distance_mm": 120,
+  "color": "red",
+  "size": "small",
+  "temperature": 28.5
+}
+```
+
+Supported compatibility aliases:
+
+- `position_update` -> `robot_position`
+- `rock_detected` -> `rock`
+- `cliff_detected` -> `cliff`
+- `boundary_detected` -> `boundary`
+- `mountain_detected` -> `mountain`
+- `status_update` -> `status`
+
 ## Integration Checklist
 
 Before connecting to the real robots, the team should confirm:
