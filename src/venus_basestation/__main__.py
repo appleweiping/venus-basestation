@@ -8,7 +8,7 @@ from .fake_messages import simulated_messages
 from .io_utils import iter_jsonl_messages, write_state_summary
 from .map_state import MapState
 from .message_schema import parse_observation
-from .mqtt_client import MqttSubscriber, mqtt_config_from_env
+from .mqtt_client import MqttSubscriber, describe_mqtt_config, mqtt_config_from_env
 from .tk_dashboard import TkDashboard
 from .svg_snapshot import write_svg_snapshot
 
@@ -28,6 +28,23 @@ def main() -> None:
     parser.add_argument("--jsonl-path", help="Replay a JSONL file when using --source jsonl.")
     parser.add_argument("--save-figure", help="Write the final dashboard figure to this PNG path.")
     parser.add_argument("--save-state", help="Write the final map state to this JSON path.")
+    parser.add_argument(
+        "--mqtt-check",
+        action="store_true",
+        help="Print sanitized MQTT config, connect briefly, then exit.",
+    )
+    parser.add_argument(
+        "--mqtt-timeout",
+        type=float,
+        default=10.0,
+        help="Seconds to wait when --mqtt-check is used.",
+    )
+    parser.add_argument(
+        "--mqtt-min-messages",
+        type=int,
+        default=1,
+        help="Minimum messages to wait for when --mqtt-check is used.",
+    )
     args = parser.parse_args()
 
     state = MapState()
@@ -57,18 +74,42 @@ def main() -> None:
         return
 
     config = mqtt_config_from_env()
+    print(describe_mqtt_config(config))
     topics = config["topics"]
     if not topics:
         raise SystemExit("VENUS_MQTT_TOPICS must be set for --source mqtt")
 
     subscriber = MqttSubscriber(
         host=str(config["host"]),
+        port=int(config["port"]),
         username=str(config["username"]),
         password=str(config["password"]),
         topics=list(topics),
         on_observation=lambda observation: (state.apply(observation), dashboard and dashboard.draw(state)),
     )
-    subscriber.run_forever()
+    if args.mqtt_check:
+        try:
+            count = subscriber.run_until(args.mqtt_timeout, min_messages=args.mqtt_min_messages)
+        except OSError as exc:
+            raise SystemExit(
+                f"MQTT check could not connect to {config['host']}:{config['port']}: {exc}. "
+                "Check TU/e network/VPN, broker availability, host, port, username, and password."
+            ) from exc
+        if count < args.mqtt_min_messages:
+            _finish(state, dashboard, args.save_figure, args.save_state, show=False)
+            raise SystemExit(
+                f"MQTT check received {count} messages in {args.mqtt_timeout:g}s; "
+                "connection may be OK but topic/payload/live robot traffic still needs checking."
+            )
+        _finish(state, dashboard, args.save_figure, args.save_state, show=False)
+        return
+    try:
+        subscriber.run_forever()
+    except OSError as exc:
+        raise SystemExit(
+            f"MQTT could not connect to {config['host']}:{config['port']}: {exc}. "
+            "Check TU/e network/VPN, broker availability, host, port, username, and password."
+        ) from exc
 
 
 def _finish(state: MapState, dashboard, save_figure: str | None, save_state: str | None, *, show: bool) -> None:

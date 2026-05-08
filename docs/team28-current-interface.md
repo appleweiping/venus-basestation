@@ -38,6 +38,18 @@ $env:PYTHONPATH="src"
 python -m venus_basestation --source mqtt --ui tk
 ```
 
+For a demo-prep smoke check without opening the UI:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --save-state outputs\mqtt_check_state.json
+```
+
+This prints sanitized MQTT settings and waits for at least one parseable message.
+If it connects but receives zero messages, the likely causes are: no robot currently
+publishing, wrong topic, broker/network issue, or a payload shape outside the
+documented compatibility aliases.
+
 ## Current Payloads
 
 Position update:
@@ -85,6 +97,18 @@ Reading the Team 28 communication, mapping, and navigation branches gives this c
 - `distance_mm` is a sensor/object-distance field, not a map-coordinate unit for `x` and `y`.
 
 This means the UI can proceed without another teammate answer for basic compatibility: it receives their values, stores them, displays them, and avoids making unsupported coordinate transformations.
+
+## Extra Runtime Tolerance
+
+The parser also accepts these likely small field-name variations so the demo is less brittle:
+
+- `message_type` or `event` instead of `type`;
+- `robot` or `id` instead of `robot_id`;
+- `rock_detection`, `cliff_detection`, `boundary_detection`, and `mountain_detection` aliases;
+- `heading_deg` instead of `heading`;
+- `object_distance_mm` or `distance` instead of `distance_mm`.
+
+Unsupported or malformed MQTT messages are logged and skipped instead of stopping the UI.
 
 ## Still Needs Team Confirmation
 

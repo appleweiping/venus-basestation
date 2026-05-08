@@ -99,6 +99,8 @@ VENUS_MQTT_TOPICS=/pynqbridge/robot_43_1/send
 
 Do not commit the MQTT password. Set `VENUS_MQTT_PASSWORD` locally when running
 against the TU/e broker.
+For one topic, either `VENUS_MQTT_TOPICS` or the single-topic alias
+`VENUS_MQTT_TOPIC` is accepted.
 
 The course manual describes the topic pattern in uppercase, but the current
 Team 28 communication prototype uses the lowercase topic above. MQTT topics are
@@ -144,11 +146,24 @@ Rock detection:
 Supported compatibility aliases:
 
 - `position_update` -> `robot_position`
+- `robot_position_update` -> `robot_position`
+- `position` -> `robot_position`
 - `rock_detected` -> `rock`
+- `rock_detection` -> `rock`
 - `cliff_detected` -> `cliff`
+- `cliff_detection` -> `cliff`
 - `boundary_detected` -> `boundary`
+- `boundary_detection` -> `boundary`
 - `mountain_detected` -> `mountain`
+- `mountain_detection` -> `mountain`
 - `status_update` -> `status`
+
+Small field-name aliases are also accepted for demo robustness:
+
+- `message_type` or `event` may be used instead of `type`;
+- `robot` or `id` may be used instead of `robot_id`;
+- `heading_deg` may be used instead of `heading`;
+- `object_distance_mm` or `distance` may be used instead of `distance_mm`.
 
 ## Integration Checklist
 

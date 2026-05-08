@@ -75,6 +75,16 @@ $env:VENUS_MQTT_TOPICS="/pynqbridge/robot_43_1/send"
 python -m venus_basestation --source mqtt --ui tk
 ```
 
+Check the MQTT config and wait briefly for live traffic without opening the UI:
+
+```powershell
+$env:PYTHONPATH="src"
+python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --save-state outputs\mqtt_check_state.json
+```
+
+The check prints the broker, port, topics, username, and whether a password is set.
+It never prints the password value.
+
 The host and topic above match the current communication-module prototype.
 Do not commit the password. For details, see `docs/team28-current-interface.md`.
 
@@ -134,6 +144,7 @@ This repository already supports:
 - JSON/JSONL replay
 - Team 28 communication-module payload compatibility (`type=position_update`, `type=rock_detected`)
 - Team 28 coordinate metadata preservation (`heading`, `distance_mm`)
+- MQTT config diagnostics without exposing passwords
 - message validation
 - in-memory map state
 - robot path tracking
@@ -165,6 +176,7 @@ Use environment variables or a local ignored file for real MQTT credentials:
 - `VENUS_MQTT_USERNAME`
 - `VENUS_MQTT_PASSWORD`
 - `VENUS_MQTT_TOPICS`
+- `VENUS_MQTT_TOPIC` for a single-topic alias
 
 For delivery checks and responsibility boundaries, see:
 

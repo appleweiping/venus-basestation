@@ -32,7 +32,7 @@ $env:PYTHONPATH="src"
 Observed result:
 
 ```text
-19 passed
+26 passed
 ```
 
 ```powershell
@@ -95,6 +95,10 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
 - Team 28 coordinate metadata is preserved:
   - position `heading` is parsed, stored, displayed, and exported;
   - object `distance_mm` is parsed, stored, displayed, and exported.
+- MQTT runtime diagnostics print sanitized broker/topic settings and never print the password value.
+- A short `--mqtt-check` mode can connect, subscribe, wait for live traffic, and save any received state for demo-prep checks.
+- MQTT broker/network connection failures are reported as concise setup errors instead of Python tracebacks.
+- Likely small field-name variations are tolerated, including `message_type`, `event`, `robot`, `id`, `heading_deg`, and `object_distance_mm`.
 - Map state export to JSON works.
 - SVG dashboard snapshot export works without installing `matplotlib`.
 - The repository does not require committing local credentials; MQTT settings are read from environment variables.
@@ -130,7 +134,7 @@ The base-station/UI module is responsible for:
 The base-station/UI module is not responsible for:
 
 - a teammate changing the payload format without updating the shared contract;
-- missing or wrong MQTT topics;
+- missing or wrong MQTT topics after the UI has printed the subscribed topic and zero-message check result;
 - unavailable broker/network;
 - wrong robot coordinates or units supplied by another module;
 - physical robot behavior, navigation, or sensor quality;

@@ -74,6 +74,40 @@ def test_accepts_heading_deg_alias() -> None:
     assert obs.raw["heading"] == 180
 
 
+def test_accepts_likely_real_robot_payload_aliases() -> None:
+    obs = parse_observation(
+        {
+            "robot": "A",
+            "message_type": "rock_detection",
+            "x": 3,
+            "y": 5,
+            "object_distance_mm": 240,
+            "color": "blue",
+        }
+    )
+
+    assert obs.robot_id == "A"
+    assert obs.event_type == "rock"
+    assert obs.distance_mm == 240.0
+    assert obs.raw["distance_mm"] == 240
+
+
+def test_accepts_event_alias_with_native_event_type_name() -> None:
+    obs = parse_observation(
+        {
+            "id": "A",
+            "event": "robot_position",
+            "x": 1,
+            "y": 2,
+            "heading_deg": 45,
+        }
+    )
+
+    assert obs.robot_id == "A"
+    assert obs.event_type == "robot_position"
+    assert obs.heading == 45.0
+
+
 def test_rejects_unknown_event_type() -> None:
     try:
         parse_observation({"robot_id": "robot_1", "event_type": "unknown"})
