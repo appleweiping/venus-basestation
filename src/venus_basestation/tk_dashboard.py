@@ -139,7 +139,10 @@ class TkDashboard:
                 self.canvas.create_line(*flattened, fill=color, width=3, smooth=True)
             px, py = points[-1]
             self.canvas.create_oval(px - 6, py - 6, px + 6, py + 6, fill=color, outline=color)
-            self.canvas.create_text(px + 32, py - 12, text=robot_id, fill=color, font=("Segoe UI", 10, "bold"))
+            label = robot_id
+            if track.heading is not None:
+                label = f"{robot_id} {track.heading:.0f}deg"
+            self.canvas.create_text(px + 42, py - 12, text=label, fill=color, font=("Segoe UI", 10, "bold"))
 
     def _draw_objects(self, state: MapState, projection: Projection) -> None:
         for obj in state.objects:
@@ -159,10 +162,13 @@ class TkDashboard:
 
     def _update_status_box(self, state: MapState) -> None:
         self.status_box.delete("1.0", self.tk.END)
-        if not state.statuses:
-            self.status_box.insert(self.tk.END, "No status messages yet.")
+        if not state.statuses and not state.robots:
+            self.status_box.insert(self.tk.END, "No robot messages yet.")
             return
-        for robot_id, payload in sorted(state.statuses.items()):
+        robot_ids = sorted(set(state.statuses) | set(state.robots))
+        for robot_id in robot_ids:
+            payload = state.statuses.get(robot_id, {})
+            track = state.robots.get(robot_id)
             mode = payload.get("mode", "status")
             battery = payload.get("battery", "n/a")
             lines = [
@@ -170,6 +176,11 @@ class TkDashboard:
                 f"  mode: {mode}",
                 f"  battery: {battery}",
             ]
+            if track and track.positions:
+                x, y = track.positions[-1]
+                lines.append(f"  position: ({x}, {y})")
+            if track and track.heading is not None:
+                lines.append(f"  heading: {track.heading:g} deg")
             if payload.get("timestamp") is not None:
                 lines.append(f"  timestamp: {payload['timestamp']}")
             self.status_box.insert(self.tk.END, "\n".join(lines) + "\n\n")

@@ -67,14 +67,15 @@ The current base-station prototype already supports:
 
 ## Coordinate System
 
-Initial assumption:
+Current Team 28 assumption after reading the communication and navigation code:
 
-- coordinates are relative to the team's chosen map origin
-- unit is meters unless the team decides otherwise
-- positive `x` points right on the dashboard
-- positive `y` points upward on the dashboard
+- `x` and `y` are treated as robot-provided map coordinates and displayed without conversion.
+- The navigation code uses centimeter-based movement and distance registers, so the best current inference is that `x` and `y` are centimeters from the robot startup origin.
+- Positive `x` points right on the dashboard and positive `y` points upward on the dashboard.
+- `heading` / `heading_deg` is parsed, stored, exported, and displayed in degrees, but the UI does not rotate or transform coordinates from it because the final physical heading convention is not complete in the navigation code.
+- `distance_mm` on object detections is preserved as sensor-relative metadata. Objects are plotted at the payload's provided `x` and `y`.
 
-This should be confirmed with the robot-side team early.
+If the navigation module later changes units or origin, the UI should update the labels/docs rather than silently converting old data.
 
 ## MQTT Topics
 
@@ -108,7 +109,10 @@ team changes it.
 
 The communication module prototype currently publishes these JSON shapes. The
 base-station parser accepts them and normalizes them internally to the event
-types above.
+types above. The parser also preserves Team 28 coordinate metadata:
+
+- `heading` or `heading_deg` for position updates
+- `distance_mm` for object detections
 
 Position update:
 
@@ -154,6 +158,7 @@ Before connecting to the real robots, the team should confirm:
 - exact payload shape
 - coordinate origin
 - units
+- physical meaning of `heading = 0` and rotation direction
 - robot identifiers
 - duplicate observation behavior
 - how uncertainty should be represented

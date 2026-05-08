@@ -133,6 +133,7 @@ This repository already supports:
 - simulated robot messages
 - JSON/JSONL replay
 - Team 28 communication-module payload compatibility (`type=position_update`, `type=rock_detected`)
+- Team 28 coordinate metadata preservation (`heading`, `distance_mm`)
 - message validation
 - in-memory map state
 - robot path tracking
@@ -175,7 +176,7 @@ The main things still needed from teammates are:
 
 - exact MQTT topics
 - final payload format
-- coordinate system agreement
+- final coordinate system agreement
 - a few sample real messages
 
 ## Current Integration Boundary
@@ -194,4 +195,4 @@ When teammate input arrives, the main work left should only be:
 
 - replacing fake/replay input with real MQTT topics
 - aligning the final payload fields
-- aligning the agreed coordinate system
+- aligning labels/docs if the agreed coordinate system differs from the current centimeter/startup-origin inference

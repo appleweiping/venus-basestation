@@ -12,6 +12,7 @@ class MapObject:
     y: float
     robot_id: str
     label: str = ""
+    distance_mm: float | None = None
     temperature: float | None = None
     confidence: float | None = None
 
@@ -20,6 +21,7 @@ class MapObject:
 class RobotTrack:
     robot_id: str
     positions: list[tuple[float, float]] = field(default_factory=list)
+    heading: float | None = None
 
 
 @dataclass
@@ -58,6 +60,7 @@ class MapState:
                 y=observation.y,
                 robot_id=observation.robot_id,
                 label=_label_for(observation),
+                distance_mm=observation.distance_mm,
                 temperature=observation.temperature,
                 confidence=observation.confidence,
             )
@@ -68,6 +71,8 @@ class MapState:
             return
         track = self.robots.setdefault(observation.robot_id, RobotTrack(observation.robot_id))
         track.positions.append((observation.x, observation.y))
+        if observation.heading is not None:
+            track.heading = observation.heading
 
     def _apply_status(self, observation: Observation) -> None:
         payload = dict(observation.raw or {})
@@ -101,8 +106,8 @@ class MapState:
         return {
             "messages_seen": self.messages_seen,
             "robots": {
-                robot_id: {"positions": positions.positions}
-                for robot_id, positions in self.robots.items()
+                robot_id: {"positions": track.positions, "heading": track.heading}
+                for robot_id, track in self.robots.items()
             },
             "statuses": self.statuses,
             "recent_events": self.recent_events,
@@ -113,6 +118,7 @@ class MapState:
                     "y": obj.y,
                     "robot_id": obj.robot_id,
                     "label": obj.label,
+                    "distance_mm": obj.distance_mm,
                     "temperature": obj.temperature,
                     "confidence": obj.confidence,
                 }
@@ -140,7 +146,9 @@ class MapState:
             elif event_type == "robot_position":
                 x = payload.get("x")
                 y = payload.get("y")
-                lines.append(f"{robot_id}: position ({x}, {y})")
+                heading = payload.get("heading")
+                heading_text = f" heading={heading}deg" if heading is not None else ""
+                lines.append(f"{robot_id}: position ({x}, {y}){heading_text}")
             elif event_type == "status":
                 mode = payload.get("mode", "status")
                 battery = payload.get("battery")
@@ -158,6 +166,8 @@ def _label_for(observation: Observation) -> str:
             parts.append(observation.color)
         if observation.size:
             parts.append(observation.size)
+        if observation.distance_mm is not None:
+            parts.append(f"{observation.distance_mm:.0f}mm")
         if observation.temperature is not None:
             parts.append(f"{observation.temperature:.1f}C")
         return " ".join(parts)

@@ -32,7 +32,7 @@ $env:PYTHONPATH="src"
 Observed result:
 
 ```text
-17 passed
+19 passed
 ```
 
 ```powershell
@@ -92,6 +92,9 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
   - `position_update`
   - `rock_detected`
 - Compatibility aliases normalize Team 28-style payloads into the internal event types.
+- Team 28 coordinate metadata is preserved:
+  - position `heading` is parsed, stored, displayed, and exported;
+  - object `distance_mm` is parsed, stored, displayed, and exported.
 - Map state export to JSON works.
 - SVG dashboard snapshot export works without installing `matplotlib`.
 - The repository does not require committing local credentials; MQTT settings are read from environment variables.
@@ -103,7 +106,8 @@ These items depend on other modules or deployment conditions and must be confirm
 - Exact final MQTT topic names.
 - Exact final robot-side JSON payload fields.
 - Robot IDs used by the team.
-- Coordinate origin, units, and orientation.
+- Final coordinate origin, units, and orientation. Current code reading suggests centimeter coordinates from robot startup origin, but this remains a team contract issue.
+- Final physical heading convention. The UI preserves raw heading degrees but does not infer rotation direction from incomplete navigation code.
 - Whether the robot publishes duplicate or repeated observations.
 - Broker credentials and broker availability during demo time.
 - Live MQTT end-to-end flow with real robot messages.
@@ -116,6 +120,7 @@ These items depend on other modules or deployment conditions and must be confirm
 The base-station/UI module is responsible for:
 
 - accepting documented payloads;
+- preserving documented Team 28 fields such as `heading` and `distance_mm`;
 - rejecting invalid payloads with parser errors;
 - updating the in-memory map state from supported event types;
 - showing robot paths and detected map objects;

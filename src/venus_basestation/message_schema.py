@@ -30,9 +30,11 @@ class Observation:
     event_type: str
     x: float | None = None
     y: float | None = None
+    heading: float | None = None
     timestamp: float | None = None
     color: str | None = None
     size: str | None = None
+    distance_mm: float | None = None
     temperature: float | None = None
     confidence: float | None = None
     raw: dict[str, Any] | None = None
@@ -65,9 +67,11 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
         event_type=event_type,
         x=x,
         y=y,
+        heading=_optional_float(data.get("heading")),
         timestamp=_optional_float(data.get("timestamp")),
         color=_optional_str(data.get("color")),
         size=_optional_str(data.get("size")),
+        distance_mm=_optional_float(data.get("distance_mm")),
         temperature=_optional_float(data.get("temperature")),
         confidence=_optional_float(data.get("confidence")),
         raw=data,
@@ -81,7 +85,7 @@ def normalize_team_payload(data: dict[str, Any]) -> dict[str, Any]:
         if message_type in TEAM_MESSAGE_TYPE_ALIASES:
             normalized["event_type"] = TEAM_MESSAGE_TYPE_ALIASES[message_type]
 
-    if normalized.get("event_type") == "robot_position" and "heading" not in normalized and "heading_deg" in normalized:
+    if "heading" not in normalized and "heading_deg" in normalized:
         normalized["heading"] = normalized["heading_deg"]
 
     return normalized

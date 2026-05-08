@@ -69,13 +69,30 @@ Rock detection:
 
 The user-interface module already accepts these shapes.
 
+The user-interface module now preserves the Team 28 coordinate metadata in structured state:
+
+- `heading` is stored on the latest robot track and shown/exported as degrees.
+- `distance_mm` is stored on detected objects and shown/exported as sensor-relative metadata.
+- Object markers are still plotted at the provided `x` and `y`, because the payload already includes object coordinates.
+
+## Coordinate Interpretation From Current Code
+
+Reading the Team 28 communication, mapping, and navigation branches gives this current best interpretation:
+
+- `x` and `y` are map coordinates supplied by the robot-side modules.
+- The navigation code moves and records distance in centimeters, so `x` and `y` are most likely centimeters from the startup origin.
+- The mapping/navigation code does not currently define a complete final heading convention, so the UI records `heading` as raw degrees and does not transform it.
+- `distance_mm` is a sensor/object-distance field, not a map-coordinate unit for `x` and `y`.
+
+This means the UI can proceed without another teammate answer for basic compatibility: it receives their values, stores them, displays them, and avoids making unsupported coordinate transformations.
+
 ## Still Needs Team Confirmation
 
 - whether `/pynqbridge/robot_43_1/send` is final for the demo;
 - whether `robot_id` will stay as `"A"` or become a real robot/module identifier;
-- whether `x` and `y` are centimeters, meters, grid cells, or another unit;
-- what `heading = 0` and `heading = 90` mean physically;
-- whether detected objects should use robot position, object position, or distance-relative position;
+- whether the current centimeter/startup-origin interpretation of `x` and `y` is the final demo contract;
+- what `heading = 0` and `heading = 90` mean physically if the UI later needs an arrow or rotation;
+- whether detected objects will always include object `x` and `y`;
 - whether additional object types will be sent before the demo.
 
 ## Observed Risks Outside The UI Module

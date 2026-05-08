@@ -74,7 +74,10 @@ def write_svg_snapshot(path: str | Path, state: MapState, *, width: int = 900, h
         parts.append(f'<polyline fill="none" stroke="{color}" stroke-width="3" points="{polyline}" />')
         last_x, last_y = points[-1]
         parts.append(f'<circle cx="{last_x}" cy="{last_y}" r="7" fill="{color}" />')
-        parts.append(f'<text class="robot-label" x="{last_x + 10}" y="{last_y - 10}">{escape(robot_id)}</text>')
+        robot_label = robot_id
+        if track.heading is not None:
+            robot_label = f"{robot_id} {track.heading:.0f}deg"
+        parts.append(f'<text class="robot-label" x="{last_x + 10}" y="{last_y - 10}">{escape(robot_label)}</text>')
 
     for obj in state.objects:
         x, y = project(obj.x, obj.y)
