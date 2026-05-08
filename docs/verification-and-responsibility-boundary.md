@@ -32,7 +32,7 @@ $env:PYTHONPATH="src"
 Observed result:
 
 ```text
-26 passed
+28 passed
 ```
 
 ```powershell
@@ -99,6 +99,7 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
 - A short `--mqtt-check` mode can connect, subscribe, wait for live traffic, and save any received state for demo-prep checks.
 - MQTT broker/network connection failures are reported as concise setup errors instead of Python tracebacks.
 - Likely small field-name variations are tolerated, including `message_type`, `event`, `robot`, `id`, `heading_deg`, and `object_distance_mm`.
+- Design-report terminology is tolerated where practical: `border`/`edge` normalize to `boundary`, `block`/`sample` normalize to `rock`, and `obstacle` is accepted as a displayed map object.
 - Map state export to JSON works.
 - SVG dashboard snapshot export works without installing `matplotlib`.
 - The repository does not require committing local credentials; MQTT settings are read from environment variables.

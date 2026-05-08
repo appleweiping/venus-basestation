@@ -30,6 +30,14 @@ def test_deduplicates_static_objects() -> None:
     assert len(state.objects) == 1
 
 
+def test_stores_obstacle_objects() -> None:
+    state = MapState()
+    state.apply(parse_observation({"robot_id": "robot_1", "event_type": "obstacle", "x": 2, "y": 3}))
+
+    assert len(state.objects) == 1
+    assert state.objects[0].event_type == "obstacle"
+
+
 def test_state_to_dict_contains_expected_sections() -> None:
     state = MapState()
     state.apply(parse_observation({"robot_id": "robot_1", "event_type": "robot_position", "x": 0, "y": 0}))

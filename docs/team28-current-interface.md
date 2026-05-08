@@ -100,11 +100,14 @@ This means the UI can proceed without another teammate answer for basic compatib
 
 ## Extra Runtime Tolerance
 
+The supplied design-report and brainstorming ZIP files do not define a different JSON payload or MQTT topic. They describe the same hybrid approach: periodic position updates plus immediate event messages for rocks, cliffs/borders, mountains, obstacles, and robot positions.
+
 The parser also accepts these likely small field-name variations so the demo is less brittle:
 
 - `message_type` or `event` instead of `type`;
 - `robot` or `id` instead of `robot_id`;
-- `rock_detection`, `cliff_detection`, `boundary_detection`, and `mountain_detection` aliases;
+- `rock_detection`, `cliff_detection`, `boundary_detection`, `mountain_detection`, and `obstacle_detection` aliases;
+- design-report vocabulary such as `border_detected`, `edge_detected`, and `block_detected`;
 - `heading_deg` instead of `heading`;
 - `object_distance_mm` or `distance` instead of `distance_mm`.
 

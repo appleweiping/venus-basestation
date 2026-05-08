@@ -10,6 +10,7 @@ OBJECT_STYLES = {
     "cliff": ("x", "black"),
     "boundary": ("s", "tab:gray"),
     "mountain": ("^", "sienna"),
+    "obstacle": ("D", "tab:orange"),
 }
 
 

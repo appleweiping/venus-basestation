@@ -11,6 +11,7 @@ OBJECT_STYLES = {
     "cliff": ("#111827", "cross"),
     "boundary": ("#6b7280", "square"),
     "mountain": ("#8b5e34", "triangle"),
+    "obstacle": ("#c2410c", "diamond"),
 }
 
 
@@ -96,7 +97,7 @@ class TkDashboard:
         self.events_box = tk.Text(sidebar, height=16, width=42, wrap="word")
         self.events_box.grid(row=3, column=0, sticky="nsew", pady=(6, 12))
 
-        self.legend_var = tk.StringVar(value="Legend: robot path / rocks / cliffs / boundaries / mountains")
+        self.legend_var = tk.StringVar(value="Legend: robot path / rocks / cliffs / boundaries / mountains / obstacles")
         ttk.Label(sidebar, textvariable=self.legend_var, wraplength=320).grid(row=4, column=0, sticky="w")
 
     def draw(self, state: MapState) -> None:
@@ -154,6 +155,8 @@ class TkDashboard:
                 self.canvas.create_rectangle(px - 7, py - 7, px + 7, py + 7, fill=color, outline=color)
             elif shape == "triangle":
                 self.canvas.create_polygon(px, py - 8, px - 8, py + 7, px + 8, py + 7, fill=color, outline=color)
+            elif shape == "diamond":
+                self.canvas.create_polygon(px, py - 8, px - 8, py, px, py + 8, px + 8, py, fill=color, outline=color)
             else:
                 self.canvas.create_line(px - 7, py - 7, px + 7, py + 7, fill=color, width=2)
                 self.canvas.create_line(px - 7, py + 7, px + 7, py - 7, fill=color, width=2)

@@ -11,6 +11,7 @@ OBJECT_STYLES = {
     "cliff": ("#1f1f1f", "cross"),
     "boundary": ("#6c757d", "square"),
     "mountain": ("#8d5a2b", "triangle"),
+    "obstacle": ("#c2410c", "diamond"),
 }
 
 
@@ -88,6 +89,8 @@ def write_svg_snapshot(path: str | Path, state: MapState, *, width: int = 900, h
             parts.append(f'<rect x="{x - 6}" y="{y - 6}" width="12" height="12" fill="{color}" rx="2" />')
         elif shape == "triangle":
             parts.append(f'<polygon points="{x},{y - 8} {x - 7},{y + 6} {x + 7},{y + 6}" fill="{color}" />')
+        elif shape == "diamond":
+            parts.append(f'<polygon points="{x},{y - 8} {x - 8},{y} {x},{y + 8} {x + 8},{y}" fill="{color}" />')
         else:
             parts.append(f'<line x1="{x - 6}" y1="{y - 6}" x2="{x + 6}" y2="{y + 6}" stroke="{color}" stroke-width="2" />')
             parts.append(f'<line x1="{x - 6}" y1="{y + 6}" x2="{x + 6}" y2="{y - 6}" stroke="{color}" stroke-width="2" />')

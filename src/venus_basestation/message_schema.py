@@ -11,6 +11,7 @@ VALID_EVENT_TYPES = {
     "cliff",
     "boundary",
     "mountain",
+    "obstacle",
     "status",
 }
 
@@ -20,12 +21,24 @@ TEAM_MESSAGE_TYPE_ALIASES = {
     "position": "robot_position",
     "rock_detected": "rock",
     "rock_detection": "rock",
+    "block_detected": "rock",
+    "block_detection": "rock",
+    "sample_detected": "rock",
+    "sample_detection": "rock",
     "cliff_detected": "cliff",
     "cliff_detection": "cliff",
     "boundary_detected": "boundary",
     "boundary_detection": "boundary",
+    "border": "boundary",
+    "border_detected": "boundary",
+    "border_detection": "boundary",
+    "edge": "boundary",
+    "edge_detected": "boundary",
+    "edge_detection": "boundary",
     "mountain_detected": "mountain",
     "mountain_detection": "mountain",
+    "obstacle_detected": "obstacle",
+    "obstacle_detection": "obstacle",
     "status_update": "status",
 }
 
@@ -65,7 +78,9 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
 
     x = _optional_float(data.get("x"))
     y = _optional_float(data.get("y"))
-    if event_type in {"robot_position", "rock", "cliff", "boundary", "mountain"} and (x is None or y is None):
+    if event_type in {"robot_position", "rock", "cliff", "boundary", "mountain", "obstacle"} and (
+        x is None or y is None
+    ):
         raise ValueError(f"x and y are required for event_type {event_type!r}")
 
     return Observation(

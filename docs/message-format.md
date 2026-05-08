@@ -11,6 +11,7 @@ The recommended payload format is JSON.
 - `cliff`
 - `boundary`
 - `mountain`
+- `obstacle`
 - `status`
 
 ## Common Fields
@@ -60,7 +61,7 @@ Status messages are optional but useful for the base station. The current protot
 The current base-station prototype already supports:
 
 - `robot_position` messages updating robot tracks
-- `rock`, `cliff`, `boundary`, and `mountain` observations updating map objects
+- `rock`, `cliff`, `boundary`, `mountain`, and `obstacle` observations updating map objects
 - `status` messages updating the latest per-robot status snapshot
 - JSONL replay for offline testing
 - SVG snapshot export without extra plotting dependencies
@@ -150,12 +151,20 @@ Supported compatibility aliases:
 - `position` -> `robot_position`
 - `rock_detected` -> `rock`
 - `rock_detection` -> `rock`
+- `block_detected` -> `rock`
+- `block_detection` -> `rock`
+- `sample_detected` -> `rock`
+- `sample_detection` -> `rock`
 - `cliff_detected` -> `cliff`
 - `cliff_detection` -> `cliff`
 - `boundary_detected` -> `boundary`
 - `boundary_detection` -> `boundary`
+- `border`, `border_detected`, `border_detection` -> `boundary`
+- `edge`, `edge_detected`, `edge_detection` -> `boundary`
 - `mountain_detected` -> `mountain`
 - `mountain_detection` -> `mountain`
+- `obstacle_detected` -> `obstacle`
+- `obstacle_detection` -> `obstacle`
 - `status_update` -> `status`
 
 Small field-name aliases are also accepted for demo robustness:

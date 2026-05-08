@@ -108,6 +108,16 @@ def test_accepts_event_alias_with_native_event_type_name() -> None:
     assert obs.heading == 45.0
 
 
+def test_accepts_design_report_vocabulary_aliases() -> None:
+    border = parse_observation({"robot_id": "A", "type": "border_detected", "x": 1, "y": 2})
+    obstacle = parse_observation({"robot_id": "A", "type": "obstacle_detected", "x": 3, "y": 4})
+    block = parse_observation({"robot_id": "A", "type": "block_detected", "x": 5, "y": 6})
+
+    assert border.event_type == "boundary"
+    assert obstacle.event_type == "obstacle"
+    assert block.event_type == "rock"
+
+
 def test_rejects_unknown_event_type() -> None:
     try:
         parse_observation({"robot_id": "robot_1", "event_type": "unknown"})
