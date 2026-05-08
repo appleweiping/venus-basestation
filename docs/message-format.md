@@ -92,11 +92,17 @@ topic below in its MQTT test scripts:
 
 ```text
 VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
-VENUS_MQTT_TOPICS=/PYNQBRIDGE/YOUR_MODULE/SEND
+VENUS_MQTT_USERNAME=robot_43_1
+VENUS_MQTT_TOPICS=/pynqbridge/robot_43_1/send
 ```
 
-Replace `YOUR_MODULE` with the final bridge module identifier once the team
-confirms it.
+Do not commit the MQTT password. Set `VENUS_MQTT_PASSWORD` locally when running
+against the TU/e broker.
+
+The course manual describes the topic pattern in uppercase, but the current
+Team 28 communication prototype uses the lowercase topic above. MQTT topics are
+case-sensitive, so use the exact topic from the communication module unless the
+team changes it.
 
 ## Team 28 Compatibility Payloads
 

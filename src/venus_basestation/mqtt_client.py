@@ -8,14 +8,17 @@ from .message_schema import Observation, parse_observation
 
 ObservationHandler = Callable[[Observation], None]
 
+DEFAULT_MQTT_HOST = "mqtt.ics.ele.tue.nl"
+DEFAULT_MQTT_TOPICS = ["/pynqbridge/robot_43_1/send"]
+
 
 def mqtt_config_from_env() -> dict[str, str | list[str]]:
     topics = os.getenv("VENUS_MQTT_TOPICS", "")
     return {
-        "host": os.getenv("VENUS_MQTT_HOST", "mqtt.ics.ele.tue.nl"),
+        "host": os.getenv("VENUS_MQTT_HOST", DEFAULT_MQTT_HOST),
         "username": os.getenv("VENUS_MQTT_USERNAME", ""),
         "password": os.getenv("VENUS_MQTT_PASSWORD", ""),
-        "topics": [topic.strip() for topic in topics.split(",") if topic.strip()],
+        "topics": [topic.strip() for topic in topics.split(",") if topic.strip()] or DEFAULT_MQTT_TOPICS,
     }
 
 
@@ -55,4 +58,3 @@ class MqttSubscriber:
         client.on_message = handle_message
         client.connect(self.host)
         client.loop_forever()
-

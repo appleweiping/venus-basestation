@@ -107,6 +107,7 @@ These items depend on other modules or deployment conditions and must be confirm
 - Whether the robot publishes duplicate or repeated observations.
 - Broker credentials and broker availability during demo time.
 - Live MQTT end-to-end flow with real robot messages.
+- The current communication-module topic and payload have been read from GitLab, but a live broker run with a real robot is still required.
 - Sensor correctness, navigation correctness, or embedded-control behavior.
 - PNG export, unless `matplotlib` is installed with `requirements-dashboard.txt`.
 

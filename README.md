@@ -64,6 +64,20 @@ $env:PYTHONPATH="src"
 python -m venus_basestation --source jsonl --jsonl-path examples\team28_communication_messages.jsonl --headless --save-state outputs\team28_state.json
 ```
 
+Connect to the current Team 28 MQTT prototype:
+
+```powershell
+$env:PYTHONPATH="src"
+$env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
+$env:VENUS_MQTT_USERNAME="robot_43_1"
+$env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
+$env:VENUS_MQTT_TOPICS="/pynqbridge/robot_43_1/send"
+python -m venus_basestation --source mqtt --ui tk
+```
+
+The host and topic above match the current communication-module prototype.
+Do not commit the password. For details, see `docs/team28-current-interface.md`.
+
 Export a PNG dashboard snapshot without opening an interactive window:
 
 ```powershell
@@ -106,6 +120,7 @@ src/venus_basestation/
   tk_dashboard.py      Desktop UI built with Tkinter
 docs/
   message-format.md    Shared data contract for robot-side integration
+  team28-current-interface.md
 examples/
   sample_messages.jsonl
 tests/
