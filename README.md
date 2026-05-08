@@ -150,6 +150,10 @@ Use environment variables or a local ignored file for real MQTT credentials:
 - `VENUS_MQTT_PASSWORD`
 - `VENUS_MQTT_TOPICS`
 
+For delivery checks and responsibility boundaries, see:
+
+- `docs/verification-and-responsibility-boundary.md`
+
 ## Next Team-Dependent Steps
 
 The main things still needed from teammates are:
