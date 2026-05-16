@@ -1,210 +1,83 @@
-# Venus Basestation
+# Venus Team 28 Project Archive
 
-Base-station software and visualization dashboard for a Venus-style robotics exploration project.
+This repository now presents the Venus Team 28 project as a complete project archive, not only as Vipin's standalone base-station/UI module.
 
-The project receives robot observations, maintains a simple world model, and visualizes the explored terrain. It is designed to start with simulated messages and later connect to real MQTT topics.
+## What This Repository Contains
 
-## Goals
+- `team-project/` - snapshot of the Team 28 GitLab `main` branch, including the shared PYNQ/libpynq course project and team setup guide.
+- `team-project/module-branches/` - source-focused snapshots of the GitLab module branches: communication, algorithm/navigation, embedded software, and mapping.
+- `user-interface-module/` - Vipin's computer software and UI module: Python base-station software, MQTT/replay input, map state, Tkinter dashboard, SVG/PNG export, docs, examples, and tests.
 
-- Receive robot telemetry and object observations.
-- Track robot paths and discovered terrain features.
-- Visualize rocks, cliffs, mountains, boundaries, and robot positions.
-- Keep the message format explicit so robot-side software and UI software can integrate cleanly.
-- Support simulation and replay before the physical robots are ready.
+The original GitLab project remains the team source of truth for coursework collaboration. This GitHub repository is a public portfolio/archive mirror that makes the full project context visible together with Vipin's own UI contribution.
 
-## Quick Start
+## Quick Start: User Interface Module
 
 ```powershell
+cd user-interface-module
 python -m venv .venv
-if (Test-Path .\.venv\Scripts\Activate.ps1) { .\.venv\Scripts\Activate.ps1 } else { .\.venv\bin\Activate.ps1 }
+if (Test-Path .\.venv\Scripts\Activate.ps1) { .\.venv\Scripts\Activate.ps1 }
 pip install -r requirements.txt
 $env:PYTHONPATH="src"
 python -m venus_basestation --source simulated
 ```
 
-This launches the built-in Tkinter desktop UI, which does not require extra GUI dependencies.
-
-For the optional matplotlib dashboard and PNG export:
+Headless smoke run:
 
 ```powershell
-pip install -r requirements-dashboard.txt
-```
-
-For a headless smoke run:
-
-```powershell
+cd user-interface-module
+$env:PYTHONPATH="src"
 python -m venus_basestation --source simulated --headless --steps 20
 ```
 
-Explicitly use the Tkinter UI:
+Run tests:
 
 ```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source simulated --ui tk --steps 30
-```
-
-Use the matplotlib dashboard if you installed the dashboard extras:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source simulated --ui matplotlib --steps 30
-```
-
-Replay the example JSONL file and export a state summary:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-state outputs\sample_state.json
-```
-
-Replay the current Team 28 communication-module sample format:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source jsonl --jsonl-path examples\team28_communication_messages.jsonl --headless --save-state outputs\team28_state.json
-```
-
-Connect to the current Team 28 MQTT prototype:
-
-```powershell
-$env:PYTHONPATH="src"
-$env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
-$env:VENUS_MQTT_USERNAME="robot_43_1"
-$env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
-$env:VENUS_MQTT_TOPICS="/pynqbridge/robot_43_1/send"
-python -m venus_basestation --source mqtt --ui tk
-```
-
-Check the MQTT config and wait briefly for live traffic without opening the UI:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --save-state outputs\mqtt_check_state.json
-```
-
-The check prints the broker, port, topics, username, and whether a password is set.
-It never prints the password value.
-
-The host and topic above match the current communication-module prototype.
-Do not commit the password. For details, see `docs/team28-current-interface.md`.
-
-Export a PNG dashboard snapshot without opening an interactive window:
-
-```powershell
-$env:PYTHONPATH="src"
-$env:MPLBACKEND="Agg"
-python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-figure outputs\sample_dashboard.png
-```
-
-If `matplotlib` is not available, you can still export a clean SVG snapshot using only the standard library:
-
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source jsonl --jsonl-path examples\sample_messages.jsonl --headless --save-figure outputs\sample_dashboard.svg
-```
-
-Generate a fake JSONL stream for testing:
-
-```powershell
-$env:PYTHONPATH="src"
-python tools\generate_fake_jsonl.py outputs\fake_messages.jsonl --count 60
-```
-
-Run the automated tests:
-
-```powershell
+cd user-interface-module
 pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-## Project Layout
+## Team Project Snapshot
+
+See `team-project/README.md` for the original Team 28 software development guide and PYNQ workflow.
+
+See `team-project/PROVENANCE.md` for copy provenance and public-safety rules. See `team-project/module-branches/README.md` for branch snapshot notes.
+
+## Repository Layout
 
 ```text
-src/venus_basestation/
-  __main__.py          CLI entry point
-  dashboard.py         Matplotlib visualization
-  fake_messages.py     Simulated robot observations
-  map_state.py         In-memory world model
-  message_schema.py    Message parsing and validation
-  mqtt_client.py       MQTT subscriber wrapper
-  tk_dashboard.py      Desktop UI built with Tkinter
-docs/
-  message-format.md    Shared data contract for robot-side integration
-  team28-current-interface.md
-examples/
-  sample_messages.jsonl
-tests/
-```
-
-## What Already Works
-
-This repository already supports:
-
-- simulated robot messages
-- JSON/JSONL replay
-- Team 28 communication-module payload compatibility (`type=position_update`, `type=rock_detected`)
-- Team 28 coordinate metadata preservation (`heading`, `distance_mm`)
-- MQTT config diagnostics without exposing passwords
-- message validation
-- in-memory map state
-- robot path tracking
-- object plotting
-- live desktop UI with map, robot status, and recent event feed
-- state export to JSON
-- dashboard figure export
-- SVG snapshot export without extra plotting dependencies
-- basic automated tests
-- latest per-robot status snapshot export
-
-## Message Flow
-
-```text
-robot / simulator
-  -> MQTT or local generator
-  -> message parser
-  -> map state
-  -> dashboard
+team-project/
+  README.md
+  .vscode/
+  libpynq-5EID0-2023-v0.3.0/
+  module-branches/
+user-interface-module/
+  README.md
+  src/venus_basestation/
+  docs/
+  examples/
+  tests/
+  tools/
 ```
 
 ## Safety
 
-Do not commit credentials.
+Do not commit credentials, private keys, real MQTT passwords, personal `sftp.json`, local virtual environments, or generated runtime output.
 
-Use environment variables or a local ignored file for real MQTT credentials:
+The UI module uses environment variables for runtime MQTT credentials:
 
 - `VENUS_MQTT_HOST`
 - `VENUS_MQTT_USERNAME`
 - `VENUS_MQTT_PASSWORD`
 - `VENUS_MQTT_TOPICS`
-- `VENUS_MQTT_TOPIC` for a single-topic alias
 
-For delivery checks and responsibility boundaries, see:
+## Provenance
 
-- `docs/verification-and-responsibility-boundary.md`
+- GitHub archive: `https://github.com/appleweiping/venus-basestation`
+- Team GitLab source: `git@gitlab.tue.nl:d.gyftakis/venus-team-28.git`
+- Local Team GitLab source at migration: `D:/Undergraduate_project_netherlands/venus-team-28-gitlab`
+- Local standalone UI source before migration: `D:/Undergraduate_project_netherlands/Venus basestation`
 
-## Next Team-Dependent Steps
+## Note
 
-The main things still needed from teammates are:
-
-- exact MQTT topics
-- final payload format
-- final coordinate system agreement
-- a few sample real messages
-
-## Current Integration Boundary
-
-You can already build and test everything up to this boundary without teammates:
-
-- parser and validation
-- fake message generation
-- JSONL replay
-- map state updates
-- Tkinter UI
-- state export
-- dashboard rendering
-
-When teammate input arrives, the main work left should only be:
-
-- replacing fake/replay input with real MQTT topics
-- aligning the final payload fields
-- aligning labels/docs if the agreed coordinate system differs from the current centimeter/startup-origin inference
+This archive intentionally keeps the full team context and the UI module separate. That makes it clear that Vipin owned the computer software/UI role while the public repository still shows how the module fits into the complete Venus project.

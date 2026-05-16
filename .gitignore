@@ -219,3 +219,14 @@ data/*.jsonl
 !examples/*.jsonl
 screenshots/
 outputs/
+
+# Venus team archive local-only files
+team-project/**/sftp.json
+team-project/**/.venv/
+team-project/**/__pycache__/
+team-project/**/build/
+team-project/**/dist/
+team-project/**/.DS_Store
+user-interface-module/.venv/
+user-interface-module/.pytest_cache/
+user-interface-module/outputs/

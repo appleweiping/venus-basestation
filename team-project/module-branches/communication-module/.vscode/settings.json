@@ -1,0 +1,45 @@
+{
+    "files.associations": {
+        "complex": "c",
+        "system_error": "c",
+        "type_traits": "c",
+        "xlocnum": "c",
+        "xtr1common": "c"
+    },
+
+    "terminal.integrated.profiles.windows": {
+        "PYNQ-Board": {
+            "path": "ssh",
+            "args": [
+                "student@10.43.0.1",
+                "-t",
+                "bash"
+            ]
+        }
+    },
+
+    "terminal.integrated.profiles.linux": {
+        "PYNQ-Board": {
+            "path": "ssh",
+            "args": [
+                "student@10.43.0.1",
+                "-t",
+                "bash"
+            ]
+        }
+    },
+
+    "terminal.integrated.profiles.osx": {
+        "PYNQ-Board": {
+            "path": "ssh",
+            "args": [
+                "student@10.43.0.1",
+                "-t",
+                "bash"
+            ]
+        }
+    },
+
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.defaultProfile.linux": "bash"
+}
