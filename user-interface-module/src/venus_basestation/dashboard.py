@@ -11,6 +11,8 @@ OBJECT_STYLES = {
     "boundary": ("s", "tab:gray"),
     "mountain": ("^", "sienna"),
     "obstacle": ("D", "tab:orange"),
+    "color_sensor": ("p", "tab:purple"),
+    "distance_sensor": ("h", "tab:cyan"),
 }
 
 

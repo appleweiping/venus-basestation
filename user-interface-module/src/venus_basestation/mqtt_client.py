@@ -14,16 +14,37 @@ DEFAULT_MQTT_HOST = "mqtt.ics.ele.tue.nl"
 DEFAULT_MQTT_TOPICS = ["/pynqbridge/robot_43_1/send"]
 DEFAULT_MQTT_PORT = 1883
 
+# Test broker used by communication-module (hybrid_publisher_test.py)
+TEST_MQTT_HOST = "broker.hivemq.com"
+TEST_MQTT_TOPICS = ["energy_venus/team28/test"]
+TEST_MQTT_PORT = 1883
+
 
 def mqtt_config_from_env() -> dict[str, str | int | list[str]]:
+    """Build MQTT config from environment variables.
+
+    Set VENUS_MQTT_PROFILE=test to use the HiveMQ test broker
+    (energy_venus/team28/test) used by the communication-module team.
+    Default profile uses the course broker (mqtt.ics.ele.tue.nl).
+    """
+    profile = os.getenv("VENUS_MQTT_PROFILE", "course").lower()
+    if profile == "test":
+        default_host = TEST_MQTT_HOST
+        default_port = TEST_MQTT_PORT
+        default_topics = TEST_MQTT_TOPICS
+    else:
+        default_host = DEFAULT_MQTT_HOST
+        default_port = DEFAULT_MQTT_PORT
+        default_topics = DEFAULT_MQTT_TOPICS
+
     topics = os.getenv("VENUS_MQTT_TOPICS", "") or os.getenv("VENUS_MQTT_TOPIC", "")
-    port = int(os.getenv("VENUS_MQTT_PORT", str(DEFAULT_MQTT_PORT)))
+    port = int(os.getenv("VENUS_MQTT_PORT", str(default_port)))
     return {
-        "host": os.getenv("VENUS_MQTT_HOST", DEFAULT_MQTT_HOST),
+        "host": os.getenv("VENUS_MQTT_HOST", default_host),
         "port": port,
         "username": os.getenv("VENUS_MQTT_USERNAME", ""),
         "password": os.getenv("VENUS_MQTT_PASSWORD", ""),
-        "topics": [topic.strip() for topic in topics.split(",") if topic.strip()] or DEFAULT_MQTT_TOPICS,
+        "topics": [topic.strip() for topic in topics.split(",") if topic.strip()] or default_topics,
     }
 
 

@@ -13,6 +13,8 @@ VALID_EVENT_TYPES = {
     "mountain",
     "obstacle",
     "status",
+    "color_sensor",
+    "distance_sensor",
 }
 
 TEAM_MESSAGE_TYPE_ALIASES = {
@@ -40,6 +42,12 @@ TEAM_MESSAGE_TYPE_ALIASES = {
     "obstacle_detected": "obstacle",
     "obstacle_detection": "obstacle",
     "status_update": "status",
+    "color_detected": "color_sensor",
+    "color_detection": "color_sensor",
+    "color_reading": "color_sensor",
+    "distance_reading": "distance_sensor",
+    "distance_detected": "distance_sensor",
+    "distance_detection": "distance_sensor",
 }
 
 
@@ -82,6 +90,7 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
         x is None or y is None
     ):
         raise ValueError(f"x and y are required for event_type {event_type!r}")
+    # color_sensor and distance_sensor do NOT require x/y
 
     return Observation(
         robot_id=robot_id,
@@ -122,6 +131,12 @@ def normalize_team_payload(data: dict[str, Any]) -> dict[str, Any]:
             normalized["distance_mm"] = normalized["object_distance_mm"]
         elif "distance" in normalized:
             normalized["distance_mm"] = normalized["distance"]
+
+    # Normalize color sensor fields from embedded module
+    if "color" not in normalized and "detected_color" in normalized:
+        normalized["color"] = normalized["detected_color"]
+    if "color" not in normalized and "colour" in normalized:
+        normalized["color"] = normalized["colour"]
 
     return normalized
 

@@ -12,6 +12,8 @@ OBJECT_STYLES = {
     "boundary": ("#6b7280", "square"),
     "mountain": ("#8b5e34", "triangle"),
     "obstacle": ("#c2410c", "diamond"),
+    "color_sensor": ("#7c3aed", "oval"),
+    "distance_sensor": ("#0891b2", "square"),
 }
 
 
@@ -97,8 +99,17 @@ class TkDashboard:
         self.events_box = tk.Text(sidebar, height=16, width=42, wrap="word")
         self.events_box.grid(row=3, column=0, sticky="nsew", pady=(6, 12))
 
-        self.legend_var = tk.StringVar(value="Legend: robot path / rocks / cliffs / boundaries / mountains / obstacles")
+        self.legend_var = tk.StringVar(value="Legend: robot path / rocks / cliffs / boundaries / mountains / obstacles / sensors")
         ttk.Label(sidebar, textvariable=self.legend_var, wraplength=320).grid(row=4, column=0, sticky="w")
+
+        # Connection status indicator
+        status_frame = ttk.Frame(sidebar)
+        status_frame.grid(row=5, column=0, sticky="w", pady=(8, 0))
+        self.conn_indicator = tk.Canvas(status_frame, width=12, height=12, highlightthickness=0)
+        self.conn_indicator.pack(side="left", padx=(0, 6))
+        self.conn_indicator.create_oval(2, 2, 10, 10, fill="#94a3b8", outline="#64748b", tags="dot")
+        self.conn_status_var = tk.StringVar(value="Disconnected")
+        ttk.Label(status_frame, textvariable=self.conn_status_var, font=("Segoe UI", 9)).pack(side="left")
 
     def draw(self, state: MapState) -> None:
         self.title_var.set(f"Venus Basestation - {state.messages_seen} messages")
@@ -121,13 +132,27 @@ class TkDashboard:
     def show(self) -> None:
         self.root.mainloop()
 
+    def set_connection_status(self, connected: bool, broker: str = "") -> None:
+        """Update the connection status indicator."""
+        if connected:
+            self.conn_indicator.itemconfig("dot", fill="#22c55e", outline="#16a34a")
+            label = f"Connected to {broker}" if broker else "Connected"
+        else:
+            self.conn_indicator.itemconfig("dot", fill="#94a3b8", outline="#64748b")
+            label = "Disconnected"
+        self.conn_status_var.set(label)
+
     def _draw_grid(self, width: int, height: int, margin: int) -> None:
+        """Draw background grid aligned with the mapping module's coordinate system."""
         for i in range(5):
             x = margin + (width - 2 * margin) * i / 4
             y = margin + (height - 2 * margin) * i / 4
             self.canvas.create_line(x, margin, x, height - margin, fill="#e5e7eb")
             self.canvas.create_line(margin, y, width - margin, y, fill="#e5e7eb")
         self.canvas.create_rectangle(margin, margin, width - margin, height - margin, outline="#cbd5e1")
+        # Axis labels
+        self.canvas.create_text(width // 2, height - margin + 14, text="x (steps)", fill="#64748b", font=("Segoe UI", 8))
+        self.canvas.create_text(margin - 14, height // 2, text="y", fill="#64748b", font=("Segoe UI", 8), angle=90)
 
     def _draw_tracks(self, state: MapState, projection: Projection) -> None:
         for index, (robot_id, track) in enumerate(sorted(state.robots.items())):

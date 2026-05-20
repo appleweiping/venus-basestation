@@ -42,6 +42,9 @@ class MapState:
         if observation.event_type == "status":
             self._apply_status(observation)
             return
+        if observation.event_type in {"color_sensor", "distance_sensor"}:
+            self._apply_sensor_reading(observation)
+            return
         if observation.x is None or observation.y is None:
             return
         key = (
@@ -79,6 +82,35 @@ class MapState:
         payload.setdefault("robot_id", observation.robot_id)
         payload.setdefault("event_type", observation.event_type)
         self.statuses[observation.robot_id] = payload
+
+    def _apply_sensor_reading(self, observation: Observation) -> None:
+        """Handle color_sensor / distance_sensor readings as status-like data."""
+        payload = dict(observation.raw or {})
+        payload.setdefault("robot_id", observation.robot_id)
+        payload.setdefault("event_type", observation.event_type)
+        # Store latest sensor reading per robot; also plot if coordinates present
+        key = f"{observation.robot_id}__{observation.event_type}"
+        self.statuses[key] = payload
+        if observation.x is not None and observation.y is not None:
+            obj_key = (
+                observation.event_type,
+                round(observation.x, 3),
+                round(observation.y, 3),
+                observation.event_type,
+            )
+            if obj_key not in self._object_keys:
+                self._object_keys.add(obj_key)
+                self.objects.append(
+                    MapObject(
+                        event_type=observation.event_type,
+                        x=observation.x,
+                        y=observation.y,
+                        robot_id=observation.robot_id,
+                        label=observation.event_type,
+                        distance_mm=observation.distance_mm,
+                        confidence=observation.confidence,
+                    )
+                )
 
     def _record_event(self, observation: Observation) -> None:
         payload = dict(observation.raw or {})
@@ -154,6 +186,12 @@ class MapState:
                 battery = payload.get("battery")
                 suffix = f" battery={battery}" if battery is not None else ""
                 lines.append(f"{robot_id}: {mode}{suffix}")
+            elif event_type == "color_sensor":
+                color = payload.get("color", "unknown")
+                lines.append(f"{robot_id}: color={color}")
+            elif event_type == "distance_sensor":
+                dist = payload.get("distance_mm", payload.get("distance", "?"))
+                lines.append(f"{robot_id}: distance={dist}mm")
             else:
                 lines.append(f"{robot_id}: {event_type}")
         return lines
