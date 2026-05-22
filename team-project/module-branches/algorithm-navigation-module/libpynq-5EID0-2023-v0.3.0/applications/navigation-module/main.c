@@ -1,22 +1,39 @@
 #include <libpynq.h>
+#include <stepper.h>
 
-void init() {
-  pynq_init();
-  motionInit(50);
-}
+#include "mapping.h"
 
-void destroy() {
-  motionDestroy();
-  pynq_destroy();
+
+void move(int left ,int right) {
+
+  stepper_steps(left, right);
+
+  while(!stepper_steps_done()) continue;
+  
+  map_update(left, right);
+  sleep_msec(10);
 }
 
 int main(void) {
-  init();
+  pynq_init();
+  map_init();
 
-  move(10);
+  stepper_init();
+  stepper_enable();
+  stepper_set_speed(10000, 10000);
 
-  move(10);
   
-  destroy();
+
+  move(1600, 1600);
+  move(1000, -1000);
+  move(500, 500);
+
+  stepper_steps(2513.08900, -2513.08900);
+
+  while(!stepper_steps_done()) continue;
+  
+  map_update(2513.08900, -2513.08900);
+
+  pynq_destroy();
   return EXIT_SUCCESS;
 }

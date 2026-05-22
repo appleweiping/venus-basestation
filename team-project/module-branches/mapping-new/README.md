@@ -1,93 +1,103 @@
-# Venus Team 28
+# 🚀 Software Development Guide
+ **Read this document carefully and follow it exactly.** 
+
+If you skip a step, your code will not upload to the PYNQ board, and it will not run.
+
+---
+
+## 🛠️ Phase 1: First-Time Setup (Do this EXACTLY ONCE)
+
+Before you write a single line of code, you must set up your laptop.
+
+### Step 1: Install Required VS Code Extensions
+1. Open VS Code.
+2. Look at the far-left sidebar and click the **Extensions** icon.
+3. In the search bar at the top, type `SFTP`. Look for the one by **Natizyskunk** and click **Install**.
+
+## SSH Security Setup ("Password-Free" Connection)
+Since we use TU/e Single Sign-On (SSO), standard passwords do not work with the Git terminal. We use SSH keys to identify your laptop.
+
+### 1. Generate your Key
+1. Open **PowerShell** on your Windows laptop or Terminal on Mac
+2. Paste this command and press **Enter**:
+   `ssh-keygen -t ed25519 -C "your_email@student.tue.nl"`
+3. When it says "Enter file in which to save the key," **Press Enter** to stay with the default.
+4. When it asks for a passphrase, **Press Enter** (leave it empty). Press **Enter** again to confirm.
+   *(You should see a "randomart" box made of symbols—this means it worked).*
+
+### 2. Copy the Key to GitLab
+1. In the same PowerShell / Terminal window, paste this command to show your key:
+   `cat ~/.ssh/id_ed25519.pub`
+2. Highlight the entire block of text that starts with `ssh-ed25519` and ends with your email. **Right-click** to copy it.
+3. Go to [GitLab.tue.nl](https://gitlab.tue.nl). 
+4. Click your **Profile Icon** (top-right) -> **Edit Profile**.
+5. On the left-side menu, click **SSH Keys**.
+6. Click the **Add new key** button.
+7. Paste your key into the **Key** text box.
+8. Click **Add key** at the bottom.
+9. You should now be able to click on the code button on top of the repository and enter VSCODE
+
+### Step 3: Create Your Connection
+The setup allows auto-sync so your code goes automatically to the PYNQ board when you save (if you're connected with an ethernet cable offcourse). You need to tell it your name so it doesn't overwrite your someone else's work.
+
+1. In the left sidebar, open the `.vscode` folder.
+2. Find the file named `sftp.json.example`.
+3. **Right-click** `sftp.json.example` and click **Copy**. **DO NOT DELETE THAT FILE!**
+4. **Right-click** anywhere inside the `.vscode` folder and click **Paste**.
+5. Right-click the new copied file and **Rename** it to exactly: `sftp.json`
+6. Open your new `sftp.json` file.
+7. Look for the line that says: `"remotePath": "/home/student/CHANGE_ME",`
+8. Replace `CHANGE_ME` with your actual first name (all lowercase). 
+9. Press **`Ctrl + S`** (or `Cmd + S` on Mac) to save the file. 
+
+*(Note: Git is programmed to ignore this file. Do not worry if you don't see it in your Source Control tab).*
+
+---
+
+## 💻 Phase 2: Daily Workflow (How to write code)
+
+**CRITICAL RULE:** Never write code directly on the `main` branch. 
+
+### Step 1: Select your branch
+1. On VS Code go the bottom left and click on the text that says 'main'
+2. Choose one of the three branches you're working on
 
 
+### Step 2: Write and Auto-Sync
+1. Open any `.c` or `.h` file and start coding.
+2. Whenever you are done typing, press **`Ctrl + S`** to save.
+3. Look at the bottom-left corner of your VS Code window. A tiny green loading bar will appear. That means your file was successfully uploaded to your personal folder on the PYNQ board if you're connected.
+4. Your changes are always synced to your computer.
+**You never have to manually drag, drop, or copy files.**
 
-## Getting started
+### Step 3: Syncing your code to GitLab
+It's important you sync to GitLab so everyone can receive your changes on their laptop
+1. After you are done changing your code click on source control in the VS Code sidebar (below the search icon)
+2. Enter a short message of what you change in the text box that says "commit message"
+3. Click commit and follow the instructions. This updates your local version of the repository
+4. Click sync to udpate the online repository with your local version
+5. YOU SHOULD NEVER COMMIT CHANGES TO THE MAIN BRANCH ALWAYS CHECK THE BOTTOM OF THE VSCODE PAGE TO MAKE SURE YOU ARE ON YOU'RE MODULE'S BRANCH
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 🏃 Phase 3: Running Your Code on the Hardware
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### Step 1: Open the PYNQ Terminal
+1. Press ctrl and ~
+2. A terminal will open.
+3. Click the plus icon above it and select PYNQ-board
+3. Type `student` and press Enter. *(You will not see the letters appear as you type. This is normal).*
 
-## Add your files
+### Step 3: Compile and Run
+1. Use cd to go to your own directory. (Eg cd libpynq/dennis/libpynq-5EID..BLAHBLAHBLAH/applications/test/)
+2. Type `make` and press Enter to compile.
+3. If there are no errors, run your executable. (make run or ./main)
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+---
 
-```
-cd existing_repo
-git remote add origin https://gitlab.tue.nl/d.gyftakis/venus-team-28.git
-git branch -M main
-git push -uf origin main
-```
+## 🏁 Phase 4: Finishing Your Task
 
-## Integrate with your tools
-
-* [Set up project integrations](https://gitlab.tue.nl/d.gyftakis/venus-team-28/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### Create a Merge Request
+1. Go to GitLab in your web browser.
+2. Click **Create Merge Request** for your branch.
+3. **🚨 CRITICAL:** Scroll down to the bottom of the page and **UNCHECK** the box that says *"Delete source branch when merge request is accepted."* 
+4. Click **Merge**.

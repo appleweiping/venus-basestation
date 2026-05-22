@@ -9,13 +9,13 @@ typedef enum {
     RIGHT,
 } side; 
 
-void motionInit(int speed_0_to_100, int* distance_register);
+void motionInit(int speed_0_to_100);
 
 void move(int distance_in_cm);
 
-void turn90(side turning_side);
+void turn90(int turning_side);
 
-void orient();
+void orient(void);
 
 bool moving(void);
 

@@ -1,7 +1,7 @@
 include ../shared.mk
 
 SOURCES:=$(wildcard *.c)
-CFLAGS+=-Werror
+#CFLAGS+=-Werror
 
 include ../end.mk
 

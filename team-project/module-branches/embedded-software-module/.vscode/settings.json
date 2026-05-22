@@ -42,5 +42,9 @@
 
     "terminal.integrated.defaultProfile.windows": "PowerShell",
     "terminal.integrated.defaultProfile.linux": "bash",
+<<<<<<< HEAD
+    "C_Cpp.default.compilerPath": "",
+=======
+>>>>>>> 56a9be5f285779920c0ba3f1822b2b133cdbbd6f
     "C_Cpp.errorSquiggles": "disabled"
 }

@@ -1,17 +1,31 @@
 #include <libpynq.h>
 #include "motion-functions.h"
 #include "mapping.h"
+#include "communication.h"
+#include "algorithm-options.h"
+#include "sensor-handlers.h"
+#include "tcs3200.h"   // gives you get_color() and the COLOR_* constants
 
 void init() {
   pynq_init();
   mapping_init();
-  motionInit(50, get_distance_register());
+  communication_init();
+  options_init();
+  motionInit(50);
+  init_color_sensor();
 }
 
 void destroy() {
   motionDestroy();
   pynq_destroy();
 }
+
+/* BLOCKING FUNCTIONS 
+
+
+  move(); - 100msec
+
+*/
 
 //TODO
 /*
@@ -24,39 +38,35 @@ void destroy() {
   - Write pseudo-code for option 2
 */
 
-//See design document 2.4.2 (pg. 6)
-void option1() { 
-  while ((!obsticle) && (!approaching_mate)) {
-      move(3);
-    }
+/*
+  FOR COMMUNICATION
 
+    - make a communication.c
+    - make a communication.h
 
-    sample_data_t data = analyze();
+    - create an init function that starts the stuff
 
-    send_sample_data(data);
-    send_location_data(getX(), getY());
+    We could also start the mqqt handler on startup without the need of the main program
 
     
-    turn90(RIGHT);
+
+*/
+
+void option1() { 
+  
   
 }
 
-void option2() {
-  while(!border) {
-    option1();
-  }
-
-  orient();
-  
-}
+//See design document 2.4.2 (pg. 6)
 
 int main(void) {
   init();
 
   while(true) {
     option1();
-  }
+    
 
+  }
   
   destroy();
   return EXIT_SUCCESS;

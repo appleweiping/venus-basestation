@@ -1,69 +1,38 @@
+#include <libpynq.h>
 #include <stdio.h>
-#include <stdint.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/i2c-dev.h>
+#include <stdlib.h>
 
-#define VL53L0X_ADDR     0x29
-#define I2C_BUS          "/dev/i2c-1"
+#include "v15310x.h"
 
-// Write a byte to a register
-void write_reg(int fd, uint8_t reg, uint8_t val) {
-    uint8_t buf[2] = {reg, val};
-    write(fd, buf, 2);
-}
+int main(void) {
+    pynq_init();
+    setbuf(stdout, NULL);
 
-// Read a byte from a register
-uint8_t read_reg(int fd, uint8_t reg) {
-    write(fd, &reg, 1);
-    uint8_t val;
-    read(fd, &val, 1);
-    return val;
-}
+    printf("program started\n");
 
-// Read 16-bit big-endian value
-uint16_t read_reg16(int fd, uint8_t reg) {
-    write(fd, &reg, 1);
-    uint8_t buf[2];
-    read(fd, buf, 2);
-    return (buf[0] << 8) | buf[1];
-}
+    if (!init_distance_sensor()) {
+        printf("distance sensor failed\n");
+        destroy_distance_sensor();
+        pynq_destroy();
+        return EXIT_FAILURE;
+    }
 
-int main2() {
-    int fd = open(I2C_BUS, O_RDWR);
-    if (fd < 0) { perror("open"); return 1; }
-    ioctl(fd, I2C_SLAVE, VL53L0X_ADDR);
+    printf("distance sensor initialized\n");
 
-    // Verify device (WHO_AM_I register 0xC0 should return 0xEE)
-    uint8_t id = read_reg(fd, 0xC0);
-    printf("Device ID: 0x%02X (expect 0xEE)\n", id);
+    while (1) {
+        int distance = get_distance();
 
-    // Basic init sequence (single ranging mode)
-    write_reg(fd, 0x88, 0x00);  // standard range mode
-    write_reg(fd, 0x80, 0x01);
-    write_reg(fd, 0xFF, 0x01);
-    write_reg(fd, 0x00, 0x00);
-    write_reg(fd, 0xFF, 0x00);
-    write_reg(fd, 0x80, 0x00);
+        if (distance >= 0) {
+            printf("distance: %d mm\n", distance);
+        } else {
+            printf("distance: out of range / read failed\n");
+        }
 
-    // Trigger a single measurement
-    write_reg(fd, 0x00, 0x01);  // SYSRANGE_START
+        sleep_msec(100);
+    }
 
-    // Poll until measurement complete (bit 0 of 0x13 goes high)
-    uint8_t status;
-    do {
-        status = read_reg(fd, 0x13);
-        sleep(1);
-    } while (!(status & 0x07));
+    destroy_distance_sensor();
+    pynq_destroy();
 
-    // Read range result (register 0x1E, 2 bytes, in mm)
-    uint16_t range_mm = read_reg16(fd, 0x1E);
-    printf("Distance: %u mm\n", range_mm);
-
-    // Clear interrupt
-    write_reg(fd, 0x0B, 0x01);
-
-    close(fd);
-    return 0;
+    return EXIT_SUCCESS;
 }

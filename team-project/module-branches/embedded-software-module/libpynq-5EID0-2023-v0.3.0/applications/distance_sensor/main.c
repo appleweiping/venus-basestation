@@ -467,4 +467,8 @@ int main(void) {
     pynq_destroy();
 
     return EXIT_SUCCESS;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 0d71d28c19c0b2ab1451046805732e06a9175731

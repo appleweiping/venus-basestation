@@ -1,0 +1,46 @@
+How to Use the TCS3200 Color Sensor Library
+
+Step 1 — Include the header file at the top of your .c file.
+c#include "tcs3200.h"
+The double quotes tell the compiler to look in your local project folder first. This one line gives you access to get_color() and all the COLOR_* constants.
+
+Step 2 — Check that your header file declares the functions you need.
+Open tcs3200.h and you'll see the three function declarations:
+cint init_color_sensor(void);
+int get_color(void);
+void destroy_color_sensor(void);
+These are the promises the compiler relies on. They tell it "these functions exist somewhere, trust me" before it has seen the actual code inside tcs3200.c.
+
+Step 3 — Initialise the sensor before using it.
+Always call init_color_sensor() once at the start of your program, after pynq_init(). It sets up all the GPIO pin directions and frequency scaling so the sensor is ready to read.
+cpynq_init();
+
+if (!init_color_sensor()) {
+    printf("Color sensor init failed\n");
+    pynq_destroy();
+    return EXIT_FAILURE;
+}
+The if (!...) check is important — it catches wiring or hardware problems early and exits cleanly instead of producing garbage readings silently.
+
+Step 4 — Call get_color() to read the sensor.
+Once initialised, you can call get_color() anywhere in your program. It reads all three color channels internally and returns a single integer:
+cint color = get_color();
+The possible return values are defined as constants in the header so you never have to remember which number means what:
+ConstantValueMeaningCOLOR_WHITE0White detectedCOLOR_BLUE1Blue detectedCOLOR_GREEN2Green detectedCOLOR_BLACK3Black detectedCOLOR_RED4Red detectedCOLOR_UNKNOWN-1No match found
+
+Step 5 — Use the return value in your logic.
+A switch statement is the cleanest way to act on the result:
+cint color = get_color();
+
+switch (color) {
+    case COLOR_WHITE:   printf("Detected: WHITE\n");   break;
+    case COLOR_BLUE:    printf("Detected: BLUE\n");    break;
+    case COLOR_GREEN:   printf("Detected: GREEN\n");   break;
+    case COLOR_BLACK:   printf("Detected: BLACK\n");   break;
+    case COLOR_RED:     printf("Detected: RED\n");     break;
+    default:            printf("Detected: UNKNOWN\n"); break;
+}
+You can also use a simple if when you only care about one specific color:
+cif (get_color() == COLOR_RED) {
+    // do something when red is detected
+}

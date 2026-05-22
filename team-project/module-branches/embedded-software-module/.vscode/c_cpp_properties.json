@@ -3,19 +3,27 @@
         {
             "name": "Win32",
             "includePath": [
+<<<<<<< HEAD
+                "${workspaceFolder}/**"
+=======
                 "${workspaceFolder}/**",
                 "C:\\Users\\20252720\\Downloads\\GUI\\venus-team-28\\libpynq-5EID0-2023-v0.3.0\\library\\"
+>>>>>>> 56a9be5f285779920c0ba3f1822b2b133cdbbd6f
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
+<<<<<<< HEAD
+            "cStandard": "c23"
+=======
             "windowsSdkVersion": "10.0.26100.0",
             "compilerPath": "cl.exe",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-msvc-x64"
+>>>>>>> 56a9be5f285779920c0ba3f1822b2b133cdbbd6f
         }
     ],
     "version": 4

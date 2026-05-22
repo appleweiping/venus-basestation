@@ -1,54 +1,71 @@
 #include "motion-functions.h"
 #include <libpynq.h>
 #include <stepper.h>
+#define ratio 10
 
-//TODO:
-/*
-    - Make move function use distance_in_cm parameter
-    - Make motionInit quantize the speed (if needed)
-    -
-*/
-
-static int* distance_register_h;
-
-void motionInit(int speed_0_to_100, int* distance_register) {
+void motionInit(int speed_0_to_100) {
     stepper_init();
     stepper_enable();
-    distance_register_h = distance_register;
     stepper_set_speed(10000, 10000);
-
 }
 
-void orient(color_sensor_t raw_sensor) {
+/*TODO*/
+void orient() {
     /* THIS FUNCTION SHOULD TURN THE ROBOT AT AN ANGLE SUCH THAT IT'S 
     FORWARD TRAJECTORY IS PARALLEL TO THE BORDER */
-    while (raw_sensor.color_pointer == black) 
-}
+    while (getColor() == "BLACK") {
 
-void logSTeps(int steps) {
 
-}
-
-void log_distance(int distance_cm) {
-    *distance_register_h += distance_cm;
+    }
 }
 
 void move(int distance_in_cm) {
-    
-    log_distance(distance_in_cm);
-    logSteps();
-    stepper_steps(1600, 1600);
-    while(!stepper_steps_done()) continue;
+    float left,right;
 
-    sleep_msec(200);
+    left = distance_in_cm * ratio;
+    right = left;
+
+
+    stepper_steps((int16_t)left, (int16_t)right);
+    while(!stepper_steps_done()) continue;
+    
+    sleep_msec(100);
 }
 
-void turn90(side turning_side) {
+void move_check_update(int16_t left, int16_t right) {
+  stepper_steps(left, right);
+
+  while (!stepper_steps_done()) {
+
+    if (obstacle() || border) {
+      int16_t left_rest;
+      int16_t right_rest;
+
+      stepper_get_steps(&left_rest, &right_rest);
+
+      stepper_reset();
+      stepper_enable();
+
+      left = left - left_rest;
+      right = right - right_rest;
+
+      map_update(left, right);
+
+      return;
+    }
+    
+    sleep_msec(10);
+  }
+
+  map_update(left, right);
+}
+
+void turn90(int turning_side) {
     switch (turning_side) {
-        case LEFT:
+        case 0: //left
                 stepper_steps(-1600, 1600);
             break;
-        case RIGHT:
+        case 1: //right
                 stepper_steps(1600, -1600);
             break;
         default: 
@@ -56,7 +73,6 @@ void turn90(side turning_side) {
             break;
         
     }
-    stepper_steps(1600, 1600);
 }
 
 bool moving() { return stepper_steps_done(); }
