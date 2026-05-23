@@ -1,83 +1,235 @@
-# Venus Team 28 Project Archive
+<p align="center">
+  <strong>Venus Basestation</strong>
+</p>
 
-This repository now presents the Venus Team 28 project as a complete project archive, not only as Vipin's standalone base-station/UI module.
+<p align="center">
+  Base-station software and visualization dashboard for a multi-robot planetary exploration system.
+  Receives robot telemetry over MQTT, maintains a live world model, and renders explored terrain in real time.
+</p>
 
-## What This Repository Contains
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square" alt="Python" />
+  <img src="https://img.shields.io/badge/platform-PYNQ%20%7C%20desktop-lightgrey?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
+</p>
 
-- `team-project/` - snapshot of the Team 28 GitLab `main` branch, including the shared PYNQ/libpynq course project and team setup guide.
-- `team-project/module-branches/` - source-focused snapshots of the GitLab module branches: communication, algorithm/navigation, embedded software, and mapping.
-- `user-interface-module/` - Vipin's computer software and UI module: Python base-station software, MQTT/replay input, map state, Tkinter dashboard, SVG/PNG export, docs, examples, and tests.
+---
 
-The original GitLab project remains the team source of truth for coursework collaboration. This GitHub repository is a public portfolio/archive mirror that makes the full project context visible together with Vipin's own UI contribution.
+## Overview
 
-## Quick Start: User Interface Module
+This repository contains two things:
 
-```powershell
+- **`user-interface-module/`** — the computer software and UI module: Python base-station, MQTT subscriber, JSONL replay, map state engine, Tkinter desktop dashboard, SVG/PNG export, and automated tests.
+- **`team-project/`** — a snapshot of the shared team codebase (PYNQ embedded software, communication module, algorithm/navigation module, mapping module) mirrored from the team GitLab for portfolio context.
+
+The team GitLab remains the authoritative source for coursework collaboration. This repository is a public portfolio mirror.
+
+---
+
+## Architecture
+
+```
+robot hardware (PYNQ)
+  └─ embedded software module
+       └─ communication module  ──MQTT──▶  venus_basestation
+                                              ├─ message_schema   (parse + validate)
+                                              ├─ map_state        (world model)
+                                              ├─ tk_dashboard     (live Tkinter UI)
+                                              ├─ dashboard        (matplotlib export)
+                                              └─ svg_snapshot     (stdlib SVG export)
+```
+
+**Input sources** (selectable at runtime):
+
+| Source | Flag | Description |
+|--------|------|-------------|
+| Simulated | `--source simulated` | Built-in fake message generator |
+| JSONL replay | `--source jsonl` | Replay a recorded `.jsonl` file |
+| Live MQTT | `--source mqtt` | Subscribe to broker topics |
+
+---
+
+## Quick Start
+
+```bash
 cd user-interface-module
 python -m venv .venv
-if (Test-Path .\.venv\Scripts\Activate.ps1) { .\.venv\Scripts\Activate.ps1 }
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-$env:PYTHONPATH="src"
-python -m venus_basestation --source simulated
+PYTHONPATH=src python -m venus_basestation --source simulated
 ```
 
-Headless smoke run:
+Headless smoke run (no window):
 
-```powershell
-cd user-interface-module
-$env:PYTHONPATH="src"
-python -m venus_basestation --source simulated --headless --steps 20
+```bash
+PYTHONPATH=src python -m venus_basestation --source simulated --headless --steps 20
 ```
 
-Run tests:
+Replay a recorded session:
 
-```powershell
-cd user-interface-module
-pip install -r requirements-dev.txt
-python -m pytest
+```bash
+PYTHONPATH=src python -m venus_basestation \
+  --source jsonl \
+  --jsonl-path examples/sample_messages.jsonl \
+  --headless \
+  --save-state outputs/state.json
 ```
 
-## Team Project Snapshot
+Connect to a live MQTT broker:
 
-See `team-project/README.md` for the original Team 28 software development guide and PYNQ workflow.
+```bash
+export VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
+export VENUS_MQTT_USERNAME=robot_43_1
+export VENUS_MQTT_PASSWORD=<password>
+export VENUS_MQTT_TOPICS=/pynqbridge/robot_43_1/send
+PYTHONPATH=src python -m venus_basestation --source mqtt --ui tk
+```
 
-See `team-project/PROVENANCE.md` for copy provenance and public-safety rules. See `team-project/module-branches/README.md` for branch snapshot notes.
+Verify broker connectivity without opening the UI:
 
-## Repository Layout
+```bash
+PYTHONPATH=src python -m venus_basestation \
+  --source mqtt --headless --mqtt-check --mqtt-timeout 15 \
+  --save-state outputs/mqtt_check.json
+```
 
-```text
-team-project/
-  README.md
-  .vscode/
-  libpynq-5EID0-2023-v0.3.0/
-  module-branches/
+Export a PNG dashboard snapshot:
+
+```bash
+pip install -r requirements-dashboard.txt
+MPLBACKEND=Agg PYTHONPATH=src python -m venus_basestation \
+  --source jsonl \
+  --jsonl-path examples/sample_messages.jsonl \
+  --headless \
+  --save-figure outputs/dashboard.png
+```
+
+Export an SVG snapshot (no extra dependencies):
+
+```bash
+PYTHONPATH=src python -m venus_basestation \
+  --source jsonl \
+  --jsonl-path examples/sample_messages.jsonl \
+  --headless \
+  --save-figure outputs/dashboard.svg
+```
+
+---
+
+## CLI Reference
+
+```
+python -m venus_basestation [options]
+
+--source {simulated,mqtt,jsonl}   Input source (default: simulated)
+--headless                        Run without opening a window
+--ui {tk,matplotlib}              Dashboard backend (default: tk)
+--steps N                         Simulated steps to run (default: 40)
+--delay SECS                      Delay between simulated steps (default: 0.05)
+--jsonl-path PATH                 JSONL file for --source jsonl
+--save-figure PATH                Write final figure to PNG or SVG
+--save-state PATH                 Write final map state to JSON
+--mqtt-check                      Verify broker config and exit
+--mqtt-timeout SECS               Timeout for --mqtt-check (default: 10)
+--mqtt-min-messages N             Minimum messages for --mqtt-check (default: 1)
+```
+
+---
+
+## Message Format
+
+The base-station accepts JSON messages with the following canonical fields:
+
+```json
+{
+  "robot_id": "robot_43_1",
+  "event_type": "rock",
+  "x": 1.23,
+  "y": 4.56,
+  "color": "red",
+  "size": "large",
+  "distance_mm": 320.0,
+  "confidence": 0.91
+}
+```
+
+**Supported event types:** `robot_position`, `rock`, `cliff`, `boundary`, `mountain`, `obstacle`, `status`, `color_sensor`, `distance_sensor`
+
+The parser normalizes common field name variants from the communication module (e.g. `type=position_update` → `event_type=robot_position`, `object_distance_mm` → `distance_mm`). See [`docs/message-format.md`](user-interface-module/docs/message-format.md) for the full contract.
+
+---
+
+## MQTT Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `VENUS_MQTT_HOST` | Broker hostname |
+| `VENUS_MQTT_PORT` | Broker port (default: 1883) |
+| `VENUS_MQTT_USERNAME` | Username |
+| `VENUS_MQTT_PASSWORD` | Password — never commit this |
+| `VENUS_MQTT_TOPICS` | Comma-separated topic list |
+
+---
+
+## Project Layout
+
+```
 user-interface-module/
-  README.md
   src/venus_basestation/
+    __main__.py          CLI entry point and run loop
+    message_schema.py    Message parsing, validation, field normalization
+    map_state.py         In-memory world model (robots, objects, events)
+    tk_dashboard.py      Live Tkinter desktop UI
+    dashboard.py         Matplotlib visualization and PNG export
+    svg_snapshot.py      SVG export (stdlib only, no matplotlib)
+    mqtt_client.py       MQTT subscriber wrapper
+    fake_messages.py     Simulated robot observations
+    io_utils.py          JSONL reader and state writer
   docs/
+    message-format.md
+    team28-current-interface.md
+    verification-and-responsibility-boundary.md
   examples/
   tests/
   tools/
+
+team-project/
+  libpynq-5EID0-2023-v0.3.0/    Shared PYNQ course library
+  module-branches/               Snapshots of all team modules
+  README.md                      Original team development guide
+  PROVENANCE.md
 ```
+
+---
+
+## Running Tests
+
+```bash
+cd user-interface-module
+pip install -r requirements-dev.txt
+python -m pytest -v
+```
+
+---
+
+## Development
+
+Generate a fake JSONL stream for offline testing:
+
+```bash
+PYTHONPATH=src python tools/generate_fake_jsonl.py outputs/fake.jsonl --count 60
+```
+
+---
 
 ## Safety
 
-Do not commit credentials, private keys, real MQTT passwords, personal `sftp.json`, local virtual environments, or generated runtime output.
+- Do not commit MQTT credentials, `sftp.json`, `.venv/`, or generated output files.
+- Use environment variables for all runtime secrets.
+- The `--mqtt-check` flag prints sanitized config and never prints the password value.
 
-The UI module uses environment variables for runtime MQTT credentials:
+---
 
-- `VENUS_MQTT_HOST`
-- `VENUS_MQTT_USERNAME`
-- `VENUS_MQTT_PASSWORD`
-- `VENUS_MQTT_TOPICS`
+## License
 
-## Provenance
-
-- GitHub archive: `https://github.com/appleweiping/venus-basestation`
-- Team GitLab source: `git@gitlab.tue.nl:d.gyftakis/venus-team-28.git`
-- Local Team GitLab source at migration: `D:/Undergraduate_project_netherlands/venus-team-28-gitlab`
-- Local standalone UI source before migration: `D:/Undergraduate_project_netherlands/Venus basestation`
-
-## Note
-
-This archive intentionally keeps the full team context and the UI module separate. That makes it clear that Vipin owned the computer software/UI role while the public repository still shows how the module fits into the complete Venus project.
+Original code in `user-interface-module/` is MIT licensed. The `team-project/` snapshot retains the original team licensing. See [`LICENSE`](LICENSE) and [`team-project/PROVENANCE.md`](team-project/PROVENANCE.md).
