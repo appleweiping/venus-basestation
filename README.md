@@ -157,6 +157,8 @@ The base-station accepts JSON messages with the following canonical fields:
 
 The parser normalizes common field name variants from the communication module (e.g. `type=position_update` → `event_type=robot_position`, `object_distance_mm` → `distance_mm`). See [`docs/message-format.md`](user-interface-module/docs/message-format.md) for the full contract.
 
+The current Team 28 UART test sends robot-to-ESP32 messages as `4-byte payload length + JSON payload bytes`. MQTT normally forwards only the JSON body, but the parser also accepts MQTT payloads where that 4-byte UART length prefix is still present.
+
 ---
 
 ## MQTT Environment Variables
