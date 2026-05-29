@@ -1,17 +1,14 @@
 import json
+import os
 import time
 import random
-import os
 import paho.mqtt.client as mqtt
 
 BROKER = "mqtt.ics.ele.tue.nl"
 TOPIC = "/pynqbridge/robot_43_1/send"
 
 USER = "robot_43_1"
-PASSWORD = os.environ.get("VENUS_MQTT_PASSWORD", "")
-
-if not PASSWORD:
-    raise RuntimeError("Set VENUS_MQTT_PASSWORD before connecting to the course MQTT broker.")
+PASSWORD = os.getenv("VENUS_MQTT_PASSWORD", "")
 
 client = mqtt.Client()
 client.username_pw_set(USER, PASSWORD)

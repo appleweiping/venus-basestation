@@ -7,7 +7,7 @@
 typedef enum {
     LEFT,
     RIGHT,
-} side; 
+} side;
 
 void motionInit(int speed_0_to_100);
 
@@ -20,5 +20,9 @@ void orient(void);
 bool moving(void);
 
 void motionDestroy(void);
+
+char get_obstacle_color(void);
+
+bool obstacle(void);
 // display_init + displayString + initialise static font
 #endif

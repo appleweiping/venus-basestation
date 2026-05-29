@@ -4,6 +4,16 @@ This document defines the first data contract between robot-side software and th
 
 The recommended payload format is JSON.
 
+The current UART test from the mapping/embedded side sends messages as:
+
+```text
+4-byte payload length + JSON payload bytes
+```
+
+The base station normally receives the JSON after the ESP32 forwards it over
+MQTT. For robustness, the parser also accepts MQTT payloads where this 4-byte
+UART length prefix is still present.
+
 ## Event Types
 
 - `robot_position`
@@ -173,6 +183,12 @@ Small field-name aliases are also accepted for demo robustness:
 - `robot` or `id` may be used instead of `robot_id`;
 - `heading_deg` may be used instead of `heading`;
 - `object_distance_mm` or `distance` may be used instead of `distance_mm`.
+
+Transport-level tolerance:
+
+- plain UTF-8 JSON MQTT payloads are accepted;
+- UART-framed payloads with a 4-byte length prefix followed by UTF-8 JSON are
+  accepted if the prefix length matches the remaining payload bytes.
 
 ## Integration Checklist
 

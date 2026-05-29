@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <libpynq.h>
 
+/*STATUS: VALUES NEED TO BE CONVERTED TO DEGREES?? - WORKING*/
+
 void temperature_init() {
     adc_init();
 }

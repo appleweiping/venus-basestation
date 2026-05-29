@@ -1,10 +1,9 @@
 #include <libpynq.h>
-#include "motion-functions.h"
 #include "mapping.h"
+#include "motion-functions.h"
 #include "communication.h"
-#include "algorithm-options.h"
+// #include "algorithm-options.h"
 #include "sensor-handlers.h"
-#include "tcs3200.h"   // gives you get_color() and the COLOR_* constants
 
 void init() {
   pynq_init();
@@ -15,12 +14,14 @@ void init() {
   init_color_sensor();
 }
 
+
+
 void destroy() {
   motionDestroy();
   pynq_destroy();
 }
 
-/* BLOCKING FUNCTIONS 
+/* BLOCKING FUNCTIONS
 
 
   move(); - 100msec
@@ -48,13 +49,43 @@ void destroy() {
 
     We could also start the mqqt handler on startup without the need of the main program
 
-    
+
 
 */
 
-void option1() { 
-  
-  
+void option1() {
+  if (obstacle()) {
+    char color = get_obstacle_colori();
+    switch (color) //COLOR FUNCTION MAY NEED ADJUSTMENT
+    {
+    case 'b':
+      //Do blah blah blah
+      rockRecognitiond();
+      break;
+    case 'r':
+
+      rockRecognitiond();
+      break;
+    case 'g':
+
+      rockRecognitiond();
+      break;
+    case 'w':
+
+      break;
+    case 'black':
+      avoid_border();
+      break;
+    default:
+      printf("[ERROR] Reached default case main.c:option1()\n");
+      break;
+    }
+  }
+
+  position_update(getX(), getY(), getAngle());
+  move(3);
+
+
 }
 
 //See design document 2.4.2 (pg. 6)
@@ -64,11 +95,10 @@ int main(void) {
 
   while(true) {
     option1();
-    
+
 
   }
-  
+
   destroy();
   return EXIT_SUCCESS;
 }
-

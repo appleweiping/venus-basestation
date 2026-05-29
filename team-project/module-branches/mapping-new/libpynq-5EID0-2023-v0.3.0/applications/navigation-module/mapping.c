@@ -35,6 +35,7 @@ void map_reset(void) {
 
 float getX() {return x;}
 float getY() {return y;}
+float getAngle() {return angle;}
 
 void map_update(int left_steps, int right_steps) {
     float sL = left_steps * cm_per_step;

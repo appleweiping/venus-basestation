@@ -8,6 +8,9 @@
 #define S3  IO_A3
 #define OUT IO_A4
 
+/*STATUS: NOT WORKING - FIX CALLIBRATION*/
+
+
 int read_color(int s2, int s3)
 {
     gpio_set_level(S2, s2);
@@ -41,7 +44,7 @@ const char* decide_color(int r, int g, int b)
     }
 
     // WHITE (All colors reflecting back strongly)
-    // Note: You will likely need to tweak this threshold number 
+    // Note: You will likely need to tweak this threshold number
     // depending on your ambient lighting and how many loop iterations you run
     if (r > 1500 && g > 1500 && b > 1500) {
         return "WHITE";
@@ -82,7 +85,7 @@ const char* get_color() {
     int red = read_color(0, 0);
     int blue = read_color(0, 1);
     int green = read_color(1, 1);
-    
+
     const char* color = decide_color(red, green, blue);
 
     return color;

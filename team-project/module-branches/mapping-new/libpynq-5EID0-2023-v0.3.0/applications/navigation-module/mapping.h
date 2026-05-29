@@ -9,5 +9,6 @@ void map_update(int left_steps, int right_steps);
 //int* get_distance_register(void);
 float getX(void);
 float getY(void);
+float getAngle(void);
 
 #endif

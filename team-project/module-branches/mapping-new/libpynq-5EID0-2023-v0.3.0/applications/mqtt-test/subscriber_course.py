@@ -6,10 +6,7 @@ BROKER = "mqtt.ics.ele.tue.nl"
 TOPIC = "/pynqbridge/robot_43_1/send"
 
 USER = "robot_43_1"
-PASSWORD = os.environ.get("VENUS_MQTT_PASSWORD", "")
-
-if not PASSWORD:
-    raise RuntimeError("Set VENUS_MQTT_PASSWORD before connecting to the course MQTT broker.")
+PASSWORD = os.getenv("VENUS_MQTT_PASSWORD", "")
 
 def on_message(client, userdata, msg):
     payload = msg.payload.decode()

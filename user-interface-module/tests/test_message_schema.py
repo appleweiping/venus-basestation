@@ -59,6 +59,28 @@ def test_accepts_communication_rock_detected_payload() -> None:
     assert obs.raw["distance_mm"] == 120
 
 
+def test_accepts_uart_length_prefixed_bytes_payload() -> None:
+    payload = b'{"robot_id":"A","type":"position_update","x":3,"y":5}'
+    framed_payload = len(payload).to_bytes(4, "little") + payload
+
+    obs = parse_observation(framed_payload)
+
+    assert obs.robot_id == "A"
+    assert obs.event_type == "robot_position"
+    assert obs.x == 3.0
+    assert obs.y == 5.0
+
+
+def test_accepts_uart_length_prefixed_text_payload() -> None:
+    payload = '{"robot_id":"A","type":"rock_detected","x":3,"y":5,"distance_mm":120}'
+    framed_payload = len(payload.encode("utf-8")).to_bytes(4, "little").decode("latin-1") + payload
+
+    obs = parse_observation(framed_payload)
+
+    assert obs.event_type == "rock"
+    assert obs.distance_mm == 120.0
+
+
 def test_accepts_heading_deg_alias() -> None:
     obs = parse_observation(
         {

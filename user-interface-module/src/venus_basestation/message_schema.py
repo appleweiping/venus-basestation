@@ -69,8 +69,9 @@ class Observation:
 
 def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
     if isinstance(payload, bytes):
-        payload = payload.decode("utf-8")
+        payload = _strip_uart_length_prefix(payload).decode("utf-8")
     if isinstance(payload, str):
+        payload = _strip_text_prefix(payload)
         data = json.loads(payload)
     else:
         data = dict(payload)
@@ -139,6 +140,36 @@ def normalize_team_payload(data: dict[str, Any]) -> dict[str, Any]:
         normalized["color"] = normalized["colour"]
 
     return normalized
+
+
+def _strip_uart_length_prefix(payload: bytes) -> bytes:
+    if len(payload) < 5 or payload[:1] in {b"{", b"["}:
+        return payload
+
+    body = payload[4:]
+    for byte_order in ("little", "big"):
+        expected_length = int.from_bytes(payload[:4], byte_order)
+        if expected_length == len(body):
+            return body
+    return payload
+
+
+def _strip_text_prefix(payload: str) -> str:
+    stripped = payload.lstrip()
+    if stripped.startswith(("{", "[")):
+        return stripped
+
+    json_start = min(
+        (index for index in (payload.find("{"), payload.find("[")) if index != -1),
+        default=-1,
+    )
+    if json_start == -1:
+        return payload
+
+    prefix = payload[:json_start]
+    if len(prefix) == 4 and any(ord(char) < 32 for char in prefix):
+        return payload[json_start:]
+    return payload
 
 
 def _optional_float(value: Any) -> float | None:

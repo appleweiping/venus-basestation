@@ -50,6 +50,11 @@ If it connects but receives zero messages, the likely causes are: no robot curre
 publishing, wrong topic, broker/network issue, or a payload shape outside the
 documented compatibility aliases.
 
+The mapping/embedded UART test documents the robot-to-ESP32 frame as
+`4 bytes payload length + JSON payload bytes`. The base station still expects
+MQTT messages to be JSON, but it now also tolerates messages where that 4-byte
+UART length prefix is forwarded together with the JSON payload.
+
 ## Current Payloads
 
 Position update:
@@ -110,6 +115,8 @@ The parser also accepts these likely small field-name variations so the demo is 
 - design-report vocabulary such as `border_detected`, `edge_detected`, and `block_detected`;
 - `heading_deg` instead of `heading`;
 - `object_distance_mm` or `distance` instead of `distance_mm`.
+- an optional 4-byte UART length prefix before the JSON payload, when the
+  prefix length matches the JSON byte length.
 
 Unsupported or malformed MQTT messages are logged and skipped instead of stopping the UI.
 

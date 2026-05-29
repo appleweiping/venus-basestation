@@ -7,6 +7,9 @@
 
 #define VL53L0X_ADDR 0x29   // Datasheet shows 0x52 as 8-bit address byte. 0x52 >> 1 = 0x29.
 
+/* STATUS: NOT WORKING - TRY CHARGED ROBOTOS!!*/
+static bool initialized = false;
+
 // Main registers
 #define REG_SYSRANGE_START                          0x00
 #define REG_SYSTEM_SEQUENCE_CONFIG                  0x01
@@ -425,7 +428,6 @@ int distance_init() {
 
     printf("[DBG] sensor %d: IIC bus stable\n", SENSOR_INDEX);
 
-    bool initialized = false;
     for (int attempt = 1; attempt <= 5; attempt++) {
         printf("[DBG] sensor %d: init attempt %d\n", SENSOR_INDEX, attempt);
 
@@ -445,28 +447,31 @@ int distance_init() {
     }
 
     printf("[DBG] sensor %d: initialized\n", SENSOR_INDEX);
-
+    initialized = true;
     return 0;
-}  
+}
 
 uint16_t getDistance() {
-
+    if (!initialized) {
+        printf("[ERROR] getDistance() called but distance sensor not initialized!\n");
+        return -1;
+    }
     uint16_t distance = 0;
 
     if (read_distance_mm(&distance)
-         && distance > 0 
-         && distance <= OUT_OF_RANGE_MM) 
+         && distance > 0
+         && distance <= OUT_OF_RANGE_MM)
     {
         printf("[DEBUG] sensor %d: %u mm\n", SENSOR_INDEX, distance);
         return distance;
-    } 
-    else 
+    }
+    else
     {
         printf("[ERROR] Sensor %d: out of range\n", SENSOR_INDEX);
         return -1;
     }
 
-    
+
 }
 
 void distance_destroy() {
