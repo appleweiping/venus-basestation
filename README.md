@@ -79,19 +79,28 @@ Connect to a live MQTT broker:
 
 ```bash
 export VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
-export VENUS_MQTT_USERNAME=robot_43_1
+export VENUS_MQTT_USERNAME=robot_15_1
 export VENUS_MQTT_PASSWORD=<password>
-export VENUS_MQTT_TOPICS=/pynqbridge/robot_43_1/send
+export VENUS_MQTT_TOPICS=/pynqbridge/15/send
 PYTHONPATH=src python -m venus_basestation --source mqtt --ui tk
 ```
+
+The course broker uses the numeric communication-board topic, e.g.
+`/pynqbridge/15/send` for `robot_15_1` and `/pynqbridge/43/send` for
+`robot_43_1`. If `VENUS_MQTT_TOPICS` is not set, the base station derives this
+topic from `VENUS_MQTT_USERNAME`.
 
 Verify broker connectivity without opening the UI:
 
 ```bash
 PYTHONPATH=src python -m venus_basestation \
-  --source mqtt --headless --mqtt-check --mqtt-timeout 15 \
+  --source mqtt --headless --mqtt-check --mqtt-timeout 15 --mqtt-min-messages 0 \
   --save-state outputs/mqtt_check.json
 ```
+
+Use `--mqtt-min-messages 0` to verify broker login and topic subscription even
+when the robot is not publishing. Use the default minimum of `1` when you want
+to verify live robot payloads too.
 
 Export a PNG dashboard snapshot:
 

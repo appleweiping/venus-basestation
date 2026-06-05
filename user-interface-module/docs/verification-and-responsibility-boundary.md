@@ -32,8 +32,33 @@ $env:PYTHONPATH="src"
 Observed result:
 
 ```text
-28 passed
+35 passed
 ```
+
+Additional MQTT board-topic checks on 2026-06-05:
+
+```powershell
+$env:PYTHONPATH="src"
+$env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
+$env:VENUS_MQTT_USERNAME="robot_15_1"
+$env:VENUS_MQTT_PASSWORD="<matching password>"
+Remove-Item Env:VENUS_MQTT_TOPICS -ErrorAction SilentlyContinue
+Remove-Item Env:VENUS_MQTT_TOPIC -ErrorAction SilentlyContinue
+.\.venv\bin\python.exe -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 3 --mqtt-min-messages 0
+```
+
+Observed result:
+
+```text
+MQTT host=mqtt.ics.ele.tue.nl port=1883 topics=[/pynqbridge/15/send] username=robot_15_1 password=set
+connected to MQTT broker mqtt.ics.ele.tue.nl:1883 with reason_code=Success
+subscribing to /pynqbridge/15/send result=0 mid=1
+subscription to /pynqbridge/15/send acknowledged: Granted QoS 0
+processed 0 messages
+```
+
+The same check with `VENUS_MQTT_USERNAME="robot_43_1"` derived
+`/pynqbridge/43/send` and received `Granted QoS 0`.
 
 ```powershell
 $env:PYTHONPATH="src"
@@ -97,6 +122,8 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
   - object `distance_mm` is parsed, stored, displayed, and exported.
 - MQTT runtime diagnostics print sanitized broker/topic settings and never print the password value.
 - A short `--mqtt-check` mode can connect, subscribe, wait for live traffic, and save any received state for demo-prep checks.
+- MQTT course topics are derived from the numeric board number in usernames such as `robot_15_1` -> `/pynqbridge/15/send`.
+- MQTT subscription acknowledgements are logged, so broker ACL rejection is visible separately from zero live messages.
 - MQTT broker/network connection failures are reported as concise setup errors instead of Python tracebacks.
 - Likely small field-name variations are tolerated, including `message_type`, `event`, `robot`, `id`, `heading_deg`, and `object_distance_mm`.
 - Design-report terminology is tolerated where practical: `border`/`edge` normalize to `boundary`, `block`/`sample` normalize to `rock`, and `obstacle` is accepted as a displayed map object.
@@ -108,7 +135,7 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
 
 These items depend on other modules or deployment conditions and must be confirmed before claiming full team integration:
 
-- Exact final MQTT topic names.
+- Whether the teammate-provided numeric MQTT topic names remain final through the demo.
 - Exact final robot-side JSON payload fields.
 - Robot IDs used by the team.
 - Final coordinate origin, units, and orientation. Current code reading suggests centimeter coordinates from robot startup origin, but this remains a team contract issue.
@@ -116,7 +143,7 @@ These items depend on other modules or deployment conditions and must be confirm
 - Whether the robot publishes duplicate or repeated observations.
 - Broker credentials and broker availability during demo time.
 - Live MQTT end-to-end flow with real robot messages.
-- The current communication-module topic and payload have been read from GitLab, but a live broker run with a real robot is still required.
+- The current communication-module payload has been read from GitLab, and teammate-provided MQTT topics have been checked against broker subscription ACKs, but a live broker run with real robot messages is still required.
 - Sensor correctness, navigation correctness, or embedded-control behavior.
 - PNG export, unless `matplotlib` is installed with `requirements-dashboard.txt`.
 

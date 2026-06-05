@@ -1,35 +1,41 @@
 # Team 28 Current Interface
 
-This note captures the current interface found in the Team 28 GitLab branches on 2026-05-08.
+This note captures the current interface found in the Team 28 GitLab branches on 2026-05-08, plus the teammate-provided MQTT board credentials received on 2026-06-05.
 
 It is not a final contract. It is the best current bridge between the communication module and the user-interface/base-station module.
 
 ## Current MQTT Settings
 
-The communication-module branch currently uses:
+The teammate-provided course broker settings currently use numeric communication-board topics:
 
 ```text
 host: mqtt.ics.ele.tue.nl
-topic: /pynqbridge/robot_43_1/send
-username: robot_43_1
+robot A topic: /pynqbridge/15/send
+robot A username: robot_15_1
+robot B topic: /pynqbridge/43/send
+robot B username: robot_43_1
 ```
 
-The password exists in the communication test script, but should not be copied into this repository or committed again. Set it locally with:
+Passwords should not be copied into this repository or committed. Set the matching password locally with:
 
 ```powershell
 $env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
 ```
 
-The base-station defaults now match the current host and topic. For explicit local setup:
+The base station derives the numeric topic from `VENUS_MQTT_USERNAME` when
+`VENUS_MQTT_TOPICS` is not set. For explicit local setup with robot A:
 
 ```powershell
 $env:PYTHONPATH="src"
 $env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
-$env:VENUS_MQTT_USERNAME="robot_43_1"
+$env:VENUS_MQTT_USERNAME="robot_15_1"
 $env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
-$env:VENUS_MQTT_TOPICS="/pynqbridge/robot_43_1/send"
+$env:VENUS_MQTT_TOPICS="/pynqbridge/15/send"
 python -m venus_basestation --source mqtt --headless --save-state outputs\live_mqtt_state.json
 ```
+
+For robot B, use `VENUS_MQTT_USERNAME="robot_43_1"` and
+`VENUS_MQTT_TOPICS="/pynqbridge/43/send"` with robot B's matching password.
 
 For the Tkinter UI:
 
@@ -42,13 +48,18 @@ For a demo-prep smoke check without opening the UI:
 
 ```powershell
 $env:PYTHONPATH="src"
-python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --save-state outputs\mqtt_check_state.json
+python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --mqtt-min-messages 0 --save-state outputs\mqtt_check_state.json
 ```
 
-This prints sanitized MQTT settings and waits for at least one parseable message.
-If it connects but receives zero messages, the likely causes are: no robot currently
-publishing, wrong topic, broker/network issue, or a payload shape outside the
-documented compatibility aliases.
+This prints sanitized MQTT settings and verifies the broker login plus
+subscription acknowledgement. Keep `--mqtt-min-messages 0` when the robot is not
+publishing yet. Remove it or set it to `1` when you want to require one
+parseable live robot message too.
+
+If broker login or subscription fails, the check reports that setup error. If
+live-message mode receives zero messages, the likely causes are: no robot
+currently publishing, a payload shape outside the documented compatibility
+aliases, or a robot-side publishing issue.
 
 The mapping/embedded UART test documents the robot-to-ESP32 frame as
 `4 bytes payload length + JSON payload bytes`. The base station still expects
@@ -122,7 +133,7 @@ Unsupported or malformed MQTT messages are logged and skipped instead of stoppin
 
 ## Still Needs Team Confirmation
 
-- whether `/pynqbridge/robot_43_1/send` is final for the demo;
+- whether the teammate-provided numeric board topics remain final for the demo;
 - whether `robot_id` will stay as `"A"` or become a real robot/module identifier;
 - whether the current centimeter/startup-origin interpretation of `x` and `y` is the final demo contract;
 - what `heading = 0` and `heading = 90` mean physically if the UI later needs an arrow or rotation;

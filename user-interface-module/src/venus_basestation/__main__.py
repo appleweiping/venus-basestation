@@ -95,6 +95,12 @@ def main() -> None:
                 f"MQTT check could not connect to {config['host']}:{config['port']}: {exc}. "
                 "Check TU/e network/VPN, broker availability, host, port, username, and password."
             ) from exc
+        if subscriber.connection_error:
+            _finish(state, dashboard, args.save_figure, args.save_state, show=False)
+            raise SystemExit(subscriber.connection_error)
+        if subscriber.subscription_errors:
+            _finish(state, dashboard, args.save_figure, args.save_state, show=False)
+            raise SystemExit("; ".join(subscriber.subscription_errors))
         if count < args.mqtt_min_messages:
             _finish(state, dashboard, args.save_figure, args.save_state, show=False)
             raise SystemExit(

@@ -99,24 +99,31 @@ The course manual describes PYNQ bridge topics in this general form:
 
 The exact module identifiers and credentials should stay out of Git.
 
-The Team 28 communication branch currently uses the TU/e broker and prototype
-topic below in its MQTT test scripts:
+The current teammate-provided TU/e broker settings use numeric communication-board
+topics. The credential keeps the `robot_...` form, but the publish topic uses
+only the board number:
 
 ```text
 VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
-VENUS_MQTT_USERNAME=robot_43_1
-VENUS_MQTT_TOPICS=/pynqbridge/robot_43_1/send
+VENUS_MQTT_USERNAME=robot_15_1
+VENUS_MQTT_TOPICS=/pynqbridge/15/send
 ```
+
+Robot B follows the same rule: `robot_43_1` publishes on
+`/pynqbridge/43/send`. If `VENUS_MQTT_TOPICS` is not set, the base station
+derives this numeric topic from `VENUS_MQTT_USERNAME`.
 
 Do not commit the MQTT password. Set `VENUS_MQTT_PASSWORD` locally when running
 against the TU/e broker.
 For one topic, either `VENUS_MQTT_TOPICS` or the single-topic alias
 `VENUS_MQTT_TOPIC` is accepted.
+Use `--mqtt-check --mqtt-min-messages 0` to verify broker login and topic
+subscription without requiring a live robot payload.
 
 The course manual describes the topic pattern in uppercase, but the current
-Team 28 communication prototype uses the lowercase topic above. MQTT topics are
-case-sensitive, so use the exact topic from the communication module unless the
-team changes it.
+Team 28 communication setup uses lowercase topics. MQTT topics are
+case-sensitive, so use the exact numeric board topic from the communication
+module unless the team changes it.
 
 ## Team 28 Compatibility Payloads
 
