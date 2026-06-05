@@ -123,6 +123,8 @@ The parser also accepts these likely small field-name variations so the demo is 
 - `message_type` or `event` instead of `type`;
 - `robot` or `id` instead of `robot_id`;
 - `rock_detection`, `cliff_detection`, `boundary_detection`, `mountain_detection`, and `obstacle_detection` aliases;
+- current live `*_found` aliases such as `block_found`, `border_found`,
+  `mountain_found`, and `cliff_found`;
 - design-report vocabulary such as `border_detected`, `edge_detected`, and `block_detected`;
 - `heading_deg` instead of `heading`;
 - `object_distance_mm` or `distance` instead of `distance_mm`.

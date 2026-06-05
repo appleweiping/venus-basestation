@@ -168,20 +168,27 @@ Supported compatibility aliases:
 - `position` -> `robot_position`
 - `rock_detected` -> `rock`
 - `rock_detection` -> `rock`
+- `rock_found` -> `rock`
 - `block_detected` -> `rock`
 - `block_detection` -> `rock`
+- `block_found` -> `rock`
 - `sample_detected` -> `rock`
 - `sample_detection` -> `rock`
+- `sample_found` -> `rock`
 - `cliff_detected` -> `cliff`
 - `cliff_detection` -> `cliff`
+- `cliff_found` -> `cliff`
 - `boundary_detected` -> `boundary`
 - `boundary_detection` -> `boundary`
-- `border`, `border_detected`, `border_detection` -> `boundary`
-- `edge`, `edge_detected`, `edge_detection` -> `boundary`
+- `boundary_found` -> `boundary`
+- `border`, `border_detected`, `border_detection`, `border_found` -> `boundary`
+- `edge`, `edge_detected`, `edge_detection`, `edge_found` -> `boundary`
 - `mountain_detected` -> `mountain`
 - `mountain_detection` -> `mountain`
+- `mountain_found` -> `mountain`
 - `obstacle_detected` -> `obstacle`
 - `obstacle_detection` -> `obstacle`
+- `obstacle_found` -> `obstacle`
 - `status_update` -> `status`
 
 Small field-name aliases are also accepted for demo robustness:

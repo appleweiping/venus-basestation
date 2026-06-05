@@ -32,7 +32,7 @@ $env:PYTHONPATH="src"
 Observed result:
 
 ```text
-35 passed
+36 passed
 ```
 
 Additional MQTT board-topic checks on 2026-06-05:
@@ -127,6 +127,7 @@ wrote svg snapshot to outputs\codex_verify_sample_dashboard.svg
 - MQTT broker/network connection failures are reported as concise setup errors instead of Python tracebacks.
 - Likely small field-name variations are tolerated, including `message_type`, `event`, `robot`, `id`, `heading_deg`, and `object_distance_mm`.
 - Design-report terminology is tolerated where practical: `border`/`edge` normalize to `boundary`, `block`/`sample` normalize to `rock`, and `obstacle` is accepted as a displayed map object.
+- Current live `*_found` event names are tolerated, including `block_found`, `border_found`, `mountain_found`, and `cliff_found`.
 - Map state export to JSON works.
 - SVG dashboard snapshot export works without installing `matplotlib`.
 - The repository does not require committing local credentials; MQTT settings are read from environment variables.

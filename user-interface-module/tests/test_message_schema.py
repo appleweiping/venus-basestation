@@ -140,6 +140,20 @@ def test_accepts_design_report_vocabulary_aliases() -> None:
     assert block.event_type == "rock"
 
 
+def test_accepts_current_found_payloads_from_robot_a() -> None:
+    payloads = [
+        ({"robot_id": "A", "type": "block_found", "x": 2.34, "y": 5.67, "color": "Red", "size": 1}, "rock"),
+        ({"robot_id": "A", "type": "border_found", "x": 3.45, "y": 6.78}, "boundary"),
+        ({"robot_id": "A", "type": "mountain_found", "x": 0.32, "y": 0.78}, "mountain"),
+        ({"robot_id": "A", "type": "cliff_found", "x": 4.56, "y": 7.89}, "cliff"),
+    ]
+
+    for payload, event_type in payloads:
+        obs = parse_observation(payload)
+        assert obs.event_type == event_type
+        assert obs.robot_id == "A"
+
+
 def test_rejects_unknown_event_type() -> None:
     try:
         parse_observation({"robot_id": "robot_1", "event_type": "unknown"})
