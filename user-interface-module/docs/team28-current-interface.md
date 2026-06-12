@@ -1,6 +1,6 @@
 # Team 28 Current Interface
 
-This note captures the current interface found in the Team 28 GitLab branches on 2026-05-08, plus the teammate-provided MQTT board credentials received on 2026-06-05.
+This note captures the current interface found in the Team 28 GitLab branches on 2026-05-08, the teammate-provided MQTT board credentials received on 2026-06-05, and the robot command interface received on 2026-06-12.
 
 It is not a final contract. It is the best current bridge between the communication module and the user-interface/base-station module.
 
@@ -65,6 +65,49 @@ The mapping/embedded UART test documents the robot-to-ESP32 frame as
 `4 bytes payload length + JSON payload bytes`. The base station still expects
 MQTT messages to be JSON, but it now also tolerates messages where that 4-byte
 UART length prefix is forwarded together with the JSON payload.
+
+## Robot Command Interface (received 2026-06-12)
+
+The embedded module confirmed the broker constraints (host
+`mqtt.ics.ele.tue.nl`, port `1883`, standard unencrypted TCP, board
+credentials as above) and defined the inbound control channel:
+
+- The robot **subscribes** to `/pynqbridge/43/recv` (board 43; the base
+  station derives `/pynqbridge/<board>/recv` from the username).
+- The robot processes structural state changes cleanly **upon completing its
+  active execution iteration step** — commands are not applied mid-iteration,
+  so the UI reports "sent", and the actual state change is confirmed by
+  returning telemetry.
+
+Supported command payloads (sent verbatim by the base station, compact JSON):
+
+```json
+{"command":"start","arguments":["--verbose"]}
+```
+
+Start Navigation: exit the initial IDLE hold or resume from a paused state to
+execute spatial tracking.
+
+```json
+{"command":"idle","arguments":[]}
+```
+
+Pause Navigation: break execution safely, park motors, and enter a
+non-blocking IDLE loop waiting for a subsequent resume signal.
+
+```json
+{"command":"stop","arguments":[]}
+```
+
+Emergency Stop (Kill): immediately halt program loops, destroy peripheral
+configurations safely, and completely terminate the application framework on
+the embedded architecture.
+
+The base station publishes commands with QoS 1 (at-least-once): an emergency
+stop must not be lost, and the iteration-boundary processing makes duplicate
+delivery harmless. Commands are available from the dashboard COMMAND UPLINK
+panel in live MQTT mode, or headless via
+`python -m venus_basestation --source mqtt --send-command {start,idle,stop}`.
 
 ## Current Payloads
 

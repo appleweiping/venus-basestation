@@ -4,6 +4,43 @@ This document records what the base-station/UI module can currently verify by it
 
 It is meant to prevent unclear ownership: the base-station module should be responsible for parsing supported messages, maintaining the map state, visualizing data, and exporting summaries. It should not be treated as responsible for unconfirmed MQTT topics, robot-side payload changes, sensor accuracy, navigation behavior, or broker availability.
 
+## Robot Command Uplink Verification (2026-06-12, v0.3.0)
+
+Implemented the Team 28 embedded command interface (received 2026-06-12):
+the base station now publishes `start` / `idle` / `stop` commands to the
+robot's `/pynqbridge/<board>/recv` topic with QoS 1, from the dashboard
+COMMAND UPLINK panel (live MQTT mode) or headless via `--send-command`.
+
+Verified locally on 2026-06-12:
+
+```text
+python -m pytest -q                                  -> 71 passed
+--source mqtt --headless --mqtt-check (robot_43_1)   -> connected, reason_code=Success,
+                                                        /pynqbridge/43/send Granted QoS 0,
+                                                        command_topic=/pynqbridge/43/recv derived
+tools/command_roundtrip_check.py (HiveMQ test broker)
+                                                     -> PASS: idle command published via
+                                                        MqttCommandSender and received byte-identical
+tools/tk_smoke.py                                    -> COMMAND UPLINK panel renders; loopback
+                                                        START dispatch confirmed in status line
+```
+
+A multi-agent adversarial review of the change confirmed and led to these
+hardenings: both publish paths (dashboard and CLI) now gate success on the
+broker's QoS 1 PUBACK rather than local enqueue, so "E-STOP sent" is never
+shown for a half-open link; command buttons are disabled while the broker
+link is down; `build_command` emits the spec sample bytes verbatim (compact
+separators); paho's RuntimeError on a dropped connection is translated to a
+clean error instead of a traceback; and `.env.example` no longer pins
+`VENUS_MQTT_COMMAND_TOPIC`, so the command topic is derived from the
+username — preventing a partial credentials edit from sending an emergency
+stop to another team's board.
+
+No command was published to the real robot command topic during
+verification: a live `stop` would kill a running robot. The end-to-end
+publish path was proven on the public test broker instead; the first
+command to the real robot should happen with the team present.
+
 ## Mission Control Upgrade Verification (2026-06-12, v0.2.0)
 
 The 0.2.0 upgrade replaced the basic Tk window with the mission-control

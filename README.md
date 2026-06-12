@@ -68,6 +68,31 @@ Tkinter, zero extra dependencies):
 - **Themes** — `--theme dark` (default) or `--theme light`, shared with the
   SVG exporter.
 
+### Robot command uplink
+
+Per the Team 28 embedded spec, the robot subscribes to
+`/pynqbridge/<board>/recv` and applies commands **at the end of its active
+execution iteration step**. The base station publishes these QoS 1 payloads:
+
+| Command | Payload | Effect |
+|---------|---------|--------|
+| Start | `{"command":"start","arguments":["--verbose"]}` | Exit the initial IDLE hold / resume navigation |
+| Idle | `{"command":"idle","arguments":[]}` | Break the loop safely, park motors, wait for resume |
+| E-Stop | `{"command":"stop","arguments":[]}` | Halt loops, tear down peripherals, terminate the embedded app |
+
+In live MQTT mode the dashboard shows a **COMMAND UPLINK** panel
+(START / IDLE / E-STOP). Button feedback confirms the *send* only — actual
+robot state is confirmed by returning telemetry. The command topic is derived
+from the username (`robot_43_1` → `/pynqbridge/43/recv`) and can be overridden
+with `VENUS_MQTT_COMMAND_TOPIC` or `--command-topic`.
+
+Headless one-shot command (demo prep / scripting):
+
+```bash
+PYTHONPATH=src python -m venus_basestation --source mqtt --send-command start
+PYTHONPATH=src python -m venus_basestation --source mqtt --send-command stop --command-topic /pynqbridge/43/recv
+```
+
 **Input sources** (selectable at runtime):
 
 | Source | Flag | Description |
@@ -175,8 +200,10 @@ python -m venus_basestation [options]
 --save-figure PATH                Write final figure to PNG or SVG
 --save-state PATH                 Write final map state to JSON
 --mqtt-check                      Verify broker config and exit
---mqtt-timeout SECS               Timeout for --mqtt-check (default: 10)
+--mqtt-timeout SECS               Timeout for --mqtt-check / --send-command (default: 10)
 --mqtt-min-messages N             Minimum messages for --mqtt-check (default: 1)
+--send-command {start,idle,stop}  Publish one robot command and exit
+--command-topic TOPIC             Override the robot command topic
 ```
 
 ---
@@ -214,7 +241,8 @@ The current Team 28 UART test sends robot-to-ESP32 messages as `4-byte payload l
 | `VENUS_MQTT_PORT` | Broker port (default: 1883) |
 | `VENUS_MQTT_USERNAME` | Username |
 | `VENUS_MQTT_PASSWORD` | Password — never commit this |
-| `VENUS_MQTT_TOPICS` | Comma-separated topic list |
+| `VENUS_MQTT_TOPICS` | Comma-separated telemetry topic list |
+| `VENUS_MQTT_COMMAND_TOPIC` | Robot command topic (default: derived `/pynqbridge/<board>/recv`) |
 
 ---
 

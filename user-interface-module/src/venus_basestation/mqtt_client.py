@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import json
 import os
 import re
 import time
@@ -14,22 +15,57 @@ ConnectionHandler = Callable[[bool, str], None]
 
 DEFAULT_MQTT_HOST = "mqtt.ics.ele.tue.nl"
 DEFAULT_MQTT_TOPICS = ["/pynqbridge/43/send"]
+DEFAULT_MQTT_COMMAND_TOPIC = "/pynqbridge/43/recv"
 DEFAULT_MQTT_PORT = 1883
 COURSE_USERNAME_RE = re.compile(r"^robot_(\d+)_\d+$")
 
 # Test broker used by communication-module (hybrid_publisher_test.py)
 TEST_MQTT_HOST = "broker.hivemq.com"
 TEST_MQTT_TOPICS = ["energy_venus/team28/test"]
+TEST_MQTT_COMMAND_TOPIC = "energy_venus/team28/test/recv"
 TEST_MQTT_PORT = 1883
+
+# Robot command interface (Team 28 embedded spec, received 2026-06-12).
+# The robot subscribes to /pynqbridge/<board>/recv and applies commands
+# at the end of its active execution iteration step.
+VALID_COMMANDS = ("start", "idle", "stop")
+DEFAULT_COMMAND_ARGUMENTS: dict[str, list[str]] = {
+    "start": ["--verbose"],
+    "idle": [],
+    "stop": [],
+}
+
+
+def build_command(command: str, arguments: list[str] | None = None) -> str:
+    """Serialize a robot command payload exactly as the embedded spec defines.
+
+    ``start`` exits the IDLE hold / resumes navigation, ``idle`` parks the
+    motors and waits, ``stop`` is the emergency kill that terminates the
+    embedded application. Default arguments mirror the spec examples.
+    """
+    if command not in VALID_COMMANDS:
+        raise ValueError(f"unsupported command: {command!r} (expected one of {', '.join(VALID_COMMANDS)})")
+    payload_arguments = DEFAULT_COMMAND_ARGUMENTS[command] if arguments is None else list(arguments)
+    # Compact separators: wire bytes match the spec samples verbatim.
+    return json.dumps({"command": command, "arguments": payload_arguments}, separators=(",", ":"))
 
 
 def default_course_topics(username: str) -> list[str]:
-    """Return the course PYNQ bridge topic for a robot credential."""
+    """Return the course PYNQ bridge telemetry topic for a robot credential."""
     match = COURSE_USERNAME_RE.fullmatch(username.strip())
     if match:
         board_number = match.group(1)
         return [f"/pynqbridge/{board_number}/send"]
     return DEFAULT_MQTT_TOPICS
+
+
+def default_course_command_topic(username: str) -> str:
+    """Return the course PYNQ bridge command topic the robot subscribes to."""
+    match = COURSE_USERNAME_RE.fullmatch(username.strip())
+    if match:
+        board_number = match.group(1)
+        return f"/pynqbridge/{board_number}/recv"
+    return DEFAULT_MQTT_COMMAND_TOPIC
 
 
 def mqtt_config_from_env() -> dict[str, str | int | list[str]]:
@@ -45,10 +81,12 @@ def mqtt_config_from_env() -> dict[str, str | int | list[str]]:
         default_host = TEST_MQTT_HOST
         default_port = TEST_MQTT_PORT
         default_topics = TEST_MQTT_TOPICS
+        default_command_topic = TEST_MQTT_COMMAND_TOPIC
     else:
         default_host = DEFAULT_MQTT_HOST
         default_port = DEFAULT_MQTT_PORT
         default_topics = default_course_topics(username)
+        default_command_topic = default_course_command_topic(username)
 
     topics = os.getenv("VENUS_MQTT_TOPICS", "") or os.getenv("VENUS_MQTT_TOPIC", "")
     port = int(os.getenv("VENUS_MQTT_PORT", str(default_port)))
@@ -58,6 +96,7 @@ def mqtt_config_from_env() -> dict[str, str | int | list[str]]:
         "username": username,
         "password": os.getenv("VENUS_MQTT_PASSWORD", ""),
         "topics": [topic.strip() for topic in topics.split(",") if topic.strip()] or default_topics,
+        "command_topic": os.getenv("VENUS_MQTT_COMMAND_TOPIC", "").strip() or default_command_topic,
     }
 
 
@@ -66,9 +105,10 @@ def describe_mqtt_config(config: dict[str, str | int | list[str]]) -> str:
     topic_text = ", ".join(str(topic) for topic in topics) if isinstance(topics, list) else str(topics)
     username = str(config.get("username", ""))
     password = str(config.get("password", ""))
+    command_topic = str(config.get("command_topic", "")) or "<none>"
     return (
         f"MQTT host={config.get('host')} port={config.get('port')} "
-        f"topics=[{topic_text}] username={username or '<none>'} "
+        f"topics=[{topic_text}] command_topic={command_topic} username={username or '<none>'} "
         f"password={'set' if password else 'missing'}"
     )
 
@@ -99,6 +139,7 @@ class MqttSubscriber:
         self.subscriptions_acknowledged = 0
         self.subscription_errors: list[str] = []
         self.last_error: str | None = None
+        self._client = None
 
     def run_until(self, timeout_seconds: float, *, min_messages: int = 1) -> int:
         self.messages_seen = 0
@@ -132,6 +173,42 @@ class MqttSubscriber:
         client.connect_timeout = 5.0
         client.connect(self.host, self.port)
         client.loop_forever()
+
+    def publish_command(self, topic: str, payload: str, *, ack_timeout: float = 2.0) -> bool:
+        """Publish a robot command on the live connection (QoS 1).
+
+        Safe to call from another thread (paho's publish is thread-safe; the
+        network thread services the PUBACK while we wait). Success means the
+        broker acknowledged the publish — enqueue alone is not enough, because
+        on a half-open link paho queues silently for up to the keepalive
+        interval while reporting local success. Returns False when the uplink
+        is down or the broker does not acknowledge within ``ack_timeout``.
+        """
+        client = self._client
+        if client is None or not self.connected:
+            self.last_error = "uplink not connected to broker"
+            return False
+        result = client.publish(topic, payload, qos=1)
+        if result.rc != 0:
+            self.last_error = f"command publish to {topic} failed: rc={result.rc}"
+            self.on_log(self.last_error)
+            return False
+        try:
+            result.wait_for_publish(timeout=ack_timeout)
+            published = result.is_published()
+        except (RuntimeError, ValueError) as exc:
+            self.last_error = f"command publish to {topic} failed: {exc}"
+            self.on_log(self.last_error)
+            return False
+        if not published:
+            self.last_error = (
+                f"broker did not acknowledge command publish to {topic} within {ack_timeout:g}s "
+                "(it may still be delivered on reconnect)"
+            )
+            self.on_log(self.last_error)
+            return False
+        self.on_log(f"published command to {topic}: {payload}")
+        return True
 
     def _build_client(self):
         import paho.mqtt.client as mqtt
@@ -193,7 +270,75 @@ class MqttSubscriber:
         client.on_subscribe = handle_subscribe
         client.on_message = handle_message
         client.on_disconnect = handle_disconnect
+        self._client = client
         return client
+
+
+class MqttCommandSender:
+    """One-shot command publisher for headless CLI use.
+
+    Connects, publishes a single QoS 1 command, waits for the broker
+    acknowledgement, then disconnects. Raises OSError with a concise reason
+    on connect/auth/publish failure.
+    """
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str = "",
+        password: str = "",
+        on_log: LogHandler | None = None,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.on_log = on_log or print
+
+    def send(self, topic: str, payload: str, timeout: float = 10.0) -> None:
+        import paho.mqtt.client as mqtt
+
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        if self.username:
+            client.username_pw_set(self.username, self.password)
+
+        connected = False
+        connection_error: str | None = None
+
+        def handle_connect(client, userdata, flags, reason_code, properties):  # noqa: ANN001
+            nonlocal connected, connection_error
+            if _is_success_reason(reason_code):
+                connected = True
+            else:
+                connection_error = f"MQTT broker rejected connection: {reason_code}"
+
+        client.on_connect = handle_connect
+        client.connect_timeout = min(max(timeout, 1.0), 5.0)
+        client.connect(self.host, self.port)
+        client.loop_start()
+        try:
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline and not connected and not connection_error:
+                time.sleep(0.05)
+            if connection_error:
+                raise OSError(connection_error)
+            if not connected:
+                raise OSError(f"timed out connecting to broker after {timeout:g}s")
+            info = client.publish(topic, payload, qos=1)
+            try:
+                info.wait_for_publish(timeout=max(deadline - time.monotonic(), 1.0))
+                published = info.is_published()
+            except (RuntimeError, ValueError) as exc:
+                # paho 2.x raises RuntimeError from wait_for_publish/is_published
+                # when the publish rc is non-zero (e.g. connection dropped).
+                raise OSError(f"command publish to {topic} failed: {exc}") from exc
+            if not published:
+                raise OSError(f"broker did not acknowledge command publish to {topic}")
+            self.on_log(f"published command to {topic}: {payload}")
+        finally:
+            client.loop_stop()
+            client.disconnect()
 
 
 def _is_success_reason(reason_code) -> bool:  # noqa: ANN001

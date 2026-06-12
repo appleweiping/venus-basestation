@@ -222,6 +222,7 @@ class TkDashboard:
         self._drag_anchor: tuple[float, float] | None = None
         self._proj: Projection | None = None
         self._connected = False
+        self._command_handler = None
 
         base_family = "Bahnschrift" if "Bahnschrift" in tkfont.families() else "Segoe UI"
         self._font_title = (base_family, 17, "bold")
@@ -296,22 +297,27 @@ class TkDashboard:
         sidebar.grid(row=0, column=1, sticky="nsew")
         sidebar.grid_propagate(False)
         sidebar.columnconfigure(0, weight=1)
-        sidebar.rowconfigure(4, weight=1)
+        sidebar.rowconfigure(6, weight=1)
 
-        tk.Label(sidebar, text="ROBOTS", font=self._font_h2, bg=t.bg, fg=t.text_faint).grid(
+        tk.Label(sidebar, text="COMMAND UPLINK", font=self._font_h2, bg=t.bg, fg=t.text_faint).grid(
             row=0, column=0, sticky="w", pady=(2, 4)
         )
-        self.cards_canvas = tk.Canvas(sidebar, bg=t.bg, highlightthickness=0, height=200)
-        self.cards_canvas.grid(row=1, column=0, sticky="ew")
+        self._build_command_panel(sidebar, row=1)
 
-        tk.Label(sidebar, text="DETECTIONS", font=self._font_h2, bg=t.bg, fg=t.text_faint).grid(
+        tk.Label(sidebar, text="ROBOTS", font=self._font_h2, bg=t.bg, fg=t.text_faint).grid(
             row=2, column=0, sticky="w", pady=(10, 4)
         )
+        self.cards_canvas = tk.Canvas(sidebar, bg=t.bg, highlightthickness=0, height=200)
+        self.cards_canvas.grid(row=3, column=0, sticky="ew")
+
+        tk.Label(sidebar, text="DETECTIONS", font=self._font_h2, bg=t.bg, fg=t.text_faint).grid(
+            row=4, column=0, sticky="w", pady=(10, 4)
+        )
         self.chips_canvas = tk.Canvas(sidebar, bg=t.bg, highlightthickness=0, height=60)
-        self.chips_canvas.grid(row=3, column=0, sticky="ew")
+        self.chips_canvas.grid(row=5, column=0, sticky="ew")
 
         log_box = tk.Frame(sidebar, bg=t.bg)
-        log_box.grid(row=4, column=0, sticky="nsew", pady=(10, 0))
+        log_box.grid(row=6, column=0, sticky="nsew", pady=(10, 0))
         tk.Label(log_box, text="MISSION LOG", font=self._font_h2, bg=t.bg, fg=t.text_faint).pack(anchor="w", pady=(0, 4))
         self.feed = tk.Text(
             log_box,
@@ -342,6 +348,93 @@ class TkDashboard:
         ):
             self.feed.tag_configure(event_type, foreground=t.event_color(event_type))
         self.feed.tag_configure("plain", foreground=t.text_muted)
+
+    def _build_command_panel(self, sidebar, *, row: int) -> None:
+        """Robot command uplink: start / idle / emergency stop.
+
+        Buttons stay disabled until a command handler is attached (live MQTT
+        mode); replay/simulated sources have no uplink. The robot applies
+        commands at the end of its active iteration step, so feedback here
+        only confirms the *send* — actual robot state arrives via telemetry.
+        """
+        tk = self.tk
+        t = self.theme
+        panel = tk.Frame(sidebar, bg=t.panel, highlightthickness=1, highlightbackground=t.border)
+        panel.grid(row=row, column=0, sticky="ew")
+        buttons = tk.Frame(panel, bg=t.panel)
+        buttons.pack(fill="x", padx=8, pady=(8, 4))
+
+        self._command_buttons: list = []
+
+        def command_button(text: str, command_name: str, fg: str, bg: str) -> None:
+            button = tk.Button(
+                buttons,
+                text=text,
+                command=lambda: self._dispatch_command(command_name),
+                font=self._font_h2,
+                bg=bg,
+                fg=fg,
+                activebackground=t.border,
+                activeforeground=fg,
+                disabledforeground=t.text_faint,
+                relief="flat",
+                padx=10,
+                pady=4,
+                cursor="hand2",
+                borderwidth=0,
+                highlightthickness=1,
+                highlightbackground=t.border,
+                state="disabled",
+            )
+            button.pack(side="left", expand=True, fill="x", padx=(0, 6))
+            self._command_buttons.append(button)
+
+        command_button("▶ START", "start", t.ok, t.panel_alt)
+        command_button("⏸ IDLE", "idle", t.warn, t.panel_alt)
+        command_button("⛔ E-STOP", "stop", t.bg, t.danger)
+
+        self._command_status = tk.Label(
+            panel,
+            text="uplink available in live MQTT mode only",
+            font=self._font_small,
+            bg=t.panel,
+            fg=t.text_faint,
+            anchor="w",
+        )
+        self._command_status.pack(fill="x", padx=10, pady=(0, 6))
+
+    def set_command_handler(self, handler) -> None:
+        """Attach the command uplink. ``handler(command)`` returns the topic
+        the command was published to, or raises on failure.
+
+        Buttons only become clickable once the broker link is up (see
+        ``set_connection_status``); attaching the handler before the
+        connection exists keeps them disabled until the conn event arrives.
+        """
+        self._command_handler = handler
+        state = "normal" if self._connected else "disabled"
+        for button in self._command_buttons:
+            button.config(state=state)
+        if self._connected:
+            self._command_status.config(text="uplink ready — commands apply at the robot's next iteration step")
+        else:
+            self._command_status.config(text="uplink attached — waiting for broker link")
+
+    def _dispatch_command(self, command: str) -> None:
+        handler = getattr(self, "_command_handler", None)
+        if handler is None:
+            return
+        t = self.theme
+        try:
+            topic = handler(command)
+        except Exception as exc:
+            self._command_status.config(text=f"'{command}' failed: {exc}", fg=t.danger)
+            self._set_status(f"command '{command}' failed: {exc}")
+            return
+        label = {"start": "START sent", "idle": "IDLE sent", "stop": "E-STOP sent"}[command]
+        color = t.danger if command == "stop" else t.ok
+        self._command_status.config(text=f"{label} → {topic} (awaiting robot telemetry)", fg=color)
+        self._set_status(f"command '{command}' published to {topic}")
 
     def _build_footer(self) -> None:
         tk = self.tk
@@ -456,6 +549,14 @@ class TkDashboard:
         else:
             self._conn_dot.itemconfig("dot", fill=t.text_faint)
             self._conn_label.config(text="STANDBY", fg=t.text_muted)
+        # Commands are only meaningful on a live link: block clicks during
+        # known outages instead of letting them fail (or queue) misleadingly.
+        if self._command_handler is not None:
+            state = "normal" if connected else "disabled"
+            for button in self._command_buttons:
+                button.config(state=state)
+            if not connected:
+                self._command_status.config(text="uplink down — commands blocked until reconnect", fg=t.warn)
 
     # ------------------------------------------------------------------ actions
     def toggle_pause(self) -> None:
@@ -485,7 +586,8 @@ class TkDashboard:
 
     # ----------------------------------------------------------------- internals
     def _set_status(self, text: str) -> None:
-        self._status_line.config(text=text)
+        # The footer shares space with the legend; keep the line short.
+        self._status_line.config(text=text if len(text) <= 64 else text[:61] + "…")
 
     def _mark_dirty(self) -> None:
         self._dirty = True

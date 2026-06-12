@@ -57,12 +57,27 @@ def main() -> None:
     threading.Thread(target=feed_from_thread, daemon=True).start()
     dashboard.start_pump(state)
 
+    # Exercise the command uplink with a loopback handler (no broker needed).
+    sent_commands: list[str] = []
+
+    def loopback_handler(command: str) -> str:
+        sent_commands.append(command)
+        return "/pynqbridge/43/recv (loopback)"
+
+    dashboard.set_command_handler(loopback_handler)
+    dashboard.root.after(1200, lambda: dashboard._dispatch_command("start"))
+
     def capture_and_close() -> None:
         if args.screenshot:
             try:
                 from PIL import ImageGrab
 
+                # Bring the window forward briefly: the grab is a full-screen
+                # capture and another app may be in front.
+                dashboard.root.attributes("-topmost", True)
+                dashboard.root.lift()
                 dashboard.root.update_idletasks()
+                dashboard.root.update()
                 # Window coordinates are logical pixels; the grab is physical.
                 # Rescale the bbox by the actual DPI ratio before cropping.
                 image = ImageGrab.grab()
@@ -80,7 +95,10 @@ def main() -> None:
     dashboard.root.after(2500, capture_and_close)
     started = time.monotonic()
     dashboard.show()
-    print(f"smoke run OK: {state.messages_seen} messages, {time.monotonic() - started:.1f}s window time")
+    print(
+        f"smoke run OK: {state.messages_seen} messages, commands sent: {sent_commands}, "
+        f"{time.monotonic() - started:.1f}s window time"
+    )
 
 
 if __name__ == "__main__":

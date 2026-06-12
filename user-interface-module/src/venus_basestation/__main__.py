@@ -9,7 +9,13 @@ from .fake_messages import simulated_messages
 from .io_utils import iter_jsonl_messages, write_state_summary
 from .map_state import MapState
 from .message_schema import parse_observation
-from .mqtt_client import MqttSubscriber, describe_mqtt_config, mqtt_config_from_env
+from .mqtt_client import (
+    MqttCommandSender,
+    MqttSubscriber,
+    build_command,
+    describe_mqtt_config,
+    mqtt_config_from_env,
+)
 from .tk_dashboard import TkDashboard
 from .svg_snapshot import write_svg_snapshot
 
@@ -41,10 +47,19 @@ def main() -> None:
         help="Print sanitized MQTT config, connect briefly, then exit.",
     )
     parser.add_argument(
+        "--send-command",
+        choices=["start", "idle", "stop"],
+        help="Publish one robot command to the command topic and exit (requires --source mqtt).",
+    )
+    parser.add_argument(
+        "--command-topic",
+        help="Override the robot command topic (default: derived /pynqbridge/<board>/recv).",
+    )
+    parser.add_argument(
         "--mqtt-timeout",
         type=float,
         default=10.0,
-        help="Seconds to wait when --mqtt-check is used.",
+        help="Seconds to wait when --mqtt-check or --send-command is used.",
     )
     parser.add_argument(
         "--mqtt-min-messages",
@@ -54,10 +69,21 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.send_command and args.source != "mqtt":
+        raise SystemExit("--send-command requires --source mqtt")
+    if args.send_command and (args.save_state or args.save_figure):
+        raise SystemExit(
+            "--send-command publishes one command and exits without processing telemetry; "
+            "--save-state/--save-figure are not supported with it"
+        )
+
     state = MapState()
     figure_path = Path(args.save_figure) if args.save_figure else None
     wants_svg_only = figure_path is not None and figure_path.suffix.lower() == ".svg"
-    needs_dashboard = (not args.headless and args.ui in {"tk", "matplotlib"}) or (figure_path is not None and not wants_svg_only)
+    needs_dashboard = (
+        not args.send_command
+        and ((not args.headless and args.ui in {"tk", "matplotlib"}) or (figure_path is not None and not wants_svg_only))
+    )
     dashboard = _build_dashboard(
         args.ui,
         needs_dashboard,
@@ -87,6 +113,11 @@ def main() -> None:
 
     config = mqtt_config_from_env()
     print(describe_mqtt_config(config))
+
+    if args.send_command:
+        _run_send_command(args, config)
+        return
+
     topics = config["topics"]
     if not topics:
         raise SystemExit("VENUS_MQTT_TOPICS must be set for --source mqtt")
@@ -118,6 +149,28 @@ def _build_subscriber(config: dict, **kwargs) -> MqttSubscriber:
         topics=list(config["topics"]),
         **kwargs,
     )
+
+
+def _run_send_command(args, config: dict) -> None:
+    """One-shot robot command publish (e.g. demo-prep start/idle/stop)."""
+    topic = (args.command_topic or str(config.get("command_topic") or "")).strip()
+    if not topic:
+        raise SystemExit("command topic is not configured; set VENUS_MQTT_COMMAND_TOPIC or pass --command-topic")
+    payload = build_command(args.send_command)
+    sender = MqttCommandSender(
+        host=str(config["host"]),
+        port=int(config["port"]),
+        username=str(config["username"]),
+        password=str(config["password"]),
+    )
+    try:
+        sender.send(topic, payload, timeout=args.mqtt_timeout)
+    except OSError as exc:
+        raise SystemExit(
+            f"MQTT command could not be sent to {config['host']}:{config['port']}: {exc}. "
+            "Check TU/e network/VPN, broker availability, host, port, username, and password."
+        ) from exc
+    print(f"sent command '{args.send_command}' to {topic}")
 
 
 def _run_mqtt_check(args, config: dict, state: MapState, dashboard) -> None:
@@ -171,6 +224,16 @@ def _run_mqtt_tk(args, config: dict, state: MapState, dashboard: TkDashboard) ->
             print(message)
             dashboard.submit("log", message)
             dashboard.submit("conn", (False, ""))
+
+    command_topic = (args.command_topic or str(config.get("command_topic") or "")).strip()
+    if command_topic:
+        def send_command(command: str) -> str:
+            payload = build_command(command)
+            if not subscriber.publish_command(command_topic, payload):
+                raise RuntimeError(subscriber.last_error or "uplink not connected to broker yet")
+            return command_topic
+
+        dashboard.set_command_handler(send_command)
 
     thread = threading.Thread(target=run_subscriber, name="mqtt-subscriber", daemon=True)
     thread.start()
