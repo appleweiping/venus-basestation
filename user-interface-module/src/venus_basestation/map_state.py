@@ -165,36 +165,43 @@ class MapState:
         return counts
 
     def recent_event_lines(self, limit: int = 8) -> list[str]:
-        lines: list[str] = []
-        for payload in self.recent_events[-limit:]:
-            robot_id = str(payload.get("robot_id", "?"))
-            event_type = str(payload.get("event_type", "event"))
-            if event_type == "rock":
-                detail_parts = [str(payload.get("color", "")), str(payload.get("size", ""))]
-                if payload.get("temperature") is not None:
-                    detail_parts.append(f"{payload['temperature']}C")
-                detail = " ".join(part for part in detail_parts if part)
-                lines.append(f"{robot_id}: rock {detail}".strip())
-            elif event_type == "robot_position":
-                x = payload.get("x")
-                y = payload.get("y")
-                heading = payload.get("heading")
-                heading_text = f" heading={heading}deg" if heading is not None else ""
-                lines.append(f"{robot_id}: position ({x}, {y}){heading_text}")
-            elif event_type == "status":
-                mode = payload.get("mode", "status")
-                battery = payload.get("battery")
-                suffix = f" battery={battery}" if battery is not None else ""
-                lines.append(f"{robot_id}: {mode}{suffix}")
-            elif event_type == "color_sensor":
-                color = payload.get("color", "unknown")
-                lines.append(f"{robot_id}: color={color}")
-            elif event_type == "distance_sensor":
-                dist = payload.get("distance_mm", payload.get("distance", "?"))
-                lines.append(f"{robot_id}: distance={dist}mm")
-            else:
-                lines.append(f"{robot_id}: {event_type}")
-        return lines
+        return [format_event_payload(payload) for payload in self.recent_events[-limit:]]
+
+    def recent_event_entries(self, limit: int = 8) -> list[tuple[str, str]]:
+        """Newest-last ``(event_type, formatted line)`` pairs for color-coded feeds."""
+        return [
+            (str(payload.get("event_type", "event")), format_event_payload(payload))
+            for payload in self.recent_events[-limit:]
+        ]
+
+
+def format_event_payload(payload: dict) -> str:
+    robot_id = str(payload.get("robot_id", "?"))
+    event_type = str(payload.get("event_type", "event"))
+    if event_type == "rock":
+        detail_parts = [str(payload.get("color", "")), str(payload.get("size", ""))]
+        if payload.get("temperature") is not None:
+            detail_parts.append(f"{payload['temperature']}C")
+        detail = " ".join(part for part in detail_parts if part)
+        return f"{robot_id}: rock {detail}".strip()
+    if event_type == "robot_position":
+        x = payload.get("x")
+        y = payload.get("y")
+        heading = payload.get("heading")
+        heading_text = f" heading={heading}deg" if heading is not None else ""
+        return f"{robot_id}: position ({x}, {y}){heading_text}"
+    if event_type == "status":
+        mode = payload.get("mode", "status")
+        battery = payload.get("battery")
+        suffix = f" battery={battery}" if battery is not None else ""
+        return f"{robot_id}: {mode}{suffix}"
+    if event_type == "color_sensor":
+        color = payload.get("color", "unknown")
+        return f"{robot_id}: color={color}"
+    if event_type == "distance_sensor":
+        dist = payload.get("distance_mm", payload.get("distance", "?"))
+        return f"{robot_id}: distance={dist}mm"
+    return f"{robot_id}: {event_type}"
 
 
 def _label_for(observation: Observation) -> str:

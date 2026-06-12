@@ -11,6 +11,11 @@
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square" alt="Python" />
   <img src="https://img.shields.io/badge/platform-PYNQ%20%7C%20desktop-lightgrey?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/UI-mission%20control-38bdf8?style=flat-square" alt="Mission Control UI" />
+</p>
+
+<p align="center">
+  <img src="user-interface-module/docs/assets/mission-dashboard.svg" alt="Mission control snapshot of a three-robot exploration run" width="820" />
 </p>
 
 ---
@@ -34,10 +39,34 @@ robot hardware (PYNQ)
        └─ communication module  ──MQTT──▶  venus_basestation
                                               ├─ message_schema   (parse + validate)
                                               ├─ map_state        (world model)
-                                              ├─ tk_dashboard     (live Tkinter UI)
+                                              ├─ theme            (shared design tokens)
+                                              ├─ tk_dashboard     (mission-control Tkinter UI)
                                               ├─ dashboard        (matplotlib export)
                                               └─ svg_snapshot     (stdlib SVG export)
 ```
+
+In live MQTT mode the paho network loop runs on a daemon thread and only
+*enqueues* events; the Tk thread drains the queue at ~30 fps, so no widget is
+ever touched from a background thread.
+
+### Mission Control dashboard
+
+The default `--ui tk` dashboard is a dark mission-control console (stdlib
+Tkinter, zero extra dependencies):
+
+- **Live terrain map** — world-coordinate grid with adaptive 1/2/5 step,
+  fading glow trails per robot, heading arrows, detection markers with halos.
+- **Zoom / pan / fit** — mouse wheel zooms around the cursor, drag pans,
+  double-click (or `F`) refits to the data.
+- **Robot status cards** — mode, battery bar with level colors, position,
+  heading, and latest color/distance sensor readings per robot.
+- **Detection chips & color-coded mission log** — running tallies and the
+  latest events, tinted by event type.
+- **KPI header** — connection pill, mission clock, message count, link rate.
+- **Toolbar** — pause/resume (`Space`), fit view (`F`), export SVG snapshot
+  (`S`) straight from the live view.
+- **Themes** — `--theme dark` (default) or `--theme light`, shared with the
+  SVG exporter.
 
 **Input sources** (selectable at runtime):
 
@@ -57,6 +86,12 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 PYTHONPATH=src python -m venus_basestation --source simulated
+```
+
+Replay the bundled three-robot demo mission (the scene shown above):
+
+```bash
+PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl
 ```
 
 Headless smoke run (no window):
@@ -133,6 +168,7 @@ python -m venus_basestation [options]
 --source {simulated,mqtt,jsonl}   Input source (default: simulated)
 --headless                        Run without opening a window
 --ui {tk,matplotlib}              Dashboard backend (default: tk)
+--theme {dark,light}              Dashboard + SVG theme (default: dark)
 --steps N                         Simulated steps to run (default: 40)
 --delay SECS                      Delay between simulated steps (default: 0.05)
 --jsonl-path PATH                 JSONL file for --source jsonl
@@ -190,19 +226,24 @@ user-interface-module/
     __main__.py          CLI entry point and run loop
     message_schema.py    Message parsing, validation, field normalization
     map_state.py         In-memory world model (robots, objects, events)
-    tk_dashboard.py      Live Tkinter desktop UI
+    theme.py             Shared design tokens (dark/light, blend math)
+    tk_dashboard.py      Mission-control Tkinter UI (thread-safe queue pump)
     dashboard.py         Matplotlib visualization and PNG export
-    svg_snapshot.py      SVG export (stdlib only, no matplotlib)
+    svg_snapshot.py      Themed SVG export (stdlib only, no matplotlib)
     mqtt_client.py       MQTT subscriber wrapper
     fake_messages.py     Simulated robot observations
     io_utils.py          JSONL reader and state writer
   docs/
+    assets/mission-dashboard.svg
     message-format.md
     team28-current-interface.md
     verification-and-responsibility-boundary.md
   examples/
+    demo_mission.jsonl   Deterministic three-robot demo scene
   tests/
   tools/
+    generate_demo_mission.py
+    tk_smoke.py          Local windowed smoke test (+ optional screenshot)
 
 team-project/
   libpynq-5EID0-2023-v0.3.0/    Shared PYNQ course library

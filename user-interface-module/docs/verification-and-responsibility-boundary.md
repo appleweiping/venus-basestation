@@ -4,6 +4,33 @@ This document records what the base-station/UI module can currently verify by it
 
 It is meant to prevent unclear ownership: the base-station module should be responsible for parsing supported messages, maintaining the map state, visualizing data, and exporting summaries. It should not be treated as responsible for unconfirmed MQTT topics, robot-side payload changes, sensor accuracy, navigation behavior, or broker availability.
 
+## Mission Control Upgrade Verification (2026-06-12, v0.2.0)
+
+The 0.2.0 upgrade replaced the basic Tk window with the mission-control
+dashboard (dark/light themes, zoom/pan/fit, robot status cards, detection
+chips, color-coded mission log, live KPI header) and moved live MQTT intake
+onto a thread-safe queue: the paho network loop now runs on a daemon thread
+and only enqueues events, and the Tk thread drains the queue at ~30 fps.
+Tkinter widgets are no longer touched from MQTT callback threads.
+
+Verified locally on 2026-06-12 with the project virtual environment:
+
+```text
+python -m pytest -q                                  -> 50 passed
+--source simulated --headless --steps 40             -> processed 56 messages, state + SVG written
+--source jsonl examples/team28_communication_messages.jsonl
+                                                     -> processed 4 messages (Team 28 payloads still parse)
+--source jsonl examples/demo_mission.jsonl --headless
+                                                     -> processed 108 messages, docs/assets/mission-dashboard.svg
+PYTHONPATH=src python tools/tk_smoke.py              -> windowed run, both update paths
+                                                        (synchronous draw + threaded submit/start_pump),
+                                                        screenshot captured, window auto-closed cleanly
+```
+
+The CLI surface is backward compatible; `--theme {dark,light}` is the only
+new flag. The message contract, MQTT defaults, and mqtt-check behavior are
+unchanged.
+
 ## Last Local Verification
 
 Checked locally on 2026-05-08 from the GitHub repository:

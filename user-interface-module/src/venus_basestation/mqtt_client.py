@@ -10,6 +10,7 @@ from .message_schema import Observation, parse_observation
 
 ObservationHandler = Callable[[Observation], None]
 LogHandler = Callable[[str], None]
+ConnectionHandler = Callable[[bool, str], None]
 
 DEFAULT_MQTT_HOST = "mqtt.ics.ele.tue.nl"
 DEFAULT_MQTT_TOPICS = ["/pynqbridge/43/send"]
@@ -82,6 +83,7 @@ class MqttSubscriber:
         username: str = "",
         password: str = "",
         on_log: LogHandler | None = None,
+        on_connect_change: ConnectionHandler | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -90,6 +92,7 @@ class MqttSubscriber:
         self.username = username
         self.password = password
         self.on_log = on_log or print
+        self.on_connect_change = on_connect_change
         self.messages_seen = 0
         self.connected = False
         self.connection_error: str | None = None
@@ -146,6 +149,8 @@ class MqttSubscriber:
                 return
             self.connected = True
             self.on_log(f"connected to MQTT broker {self.host}:{self.port} with reason_code={reason_code}")
+            if self.on_connect_change:
+                self.on_connect_change(True, self.host)
             for topic in self.topics:
                 result, mid = client.subscribe(topic)
                 subscribed_topics[mid] = topic
@@ -178,9 +183,16 @@ class MqttSubscriber:
             self.messages_seen += 1
             self.on_observation(observation)
 
+        def handle_disconnect(client, userdata, flags, reason_code, properties):  # noqa: ANN001
+            self.connected = False
+            self.on_log(f"disconnected from MQTT broker {self.host}:{self.port} ({reason_code})")
+            if self.on_connect_change:
+                self.on_connect_change(False, self.host)
+
         client.on_connect = handle_connect
         client.on_subscribe = handle_subscribe
         client.on_message = handle_message
+        client.on_disconnect = handle_disconnect
         return client
 
 
