@@ -130,11 +130,13 @@ PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0
 ```
 
 > If it connects but the map stays empty (`processed 0 messages`), the broker
-> link is fine but **nothing is publishing** to your topic yet. Confirm the
-> robot side is running a process that publishes to `/pynqbridge/<username>/send`
-> (the Python `hybrid_publisher_course.py`, or a UART→MQTT bridge if you flash
-> the C firmware — the firmware alone only sends over UART). See
-> `user-interface-module/docs/verification-and-responsibility-boundary.md`.
+> link is fine but **nothing is publishing** to your topic yet. The robot
+> firmware only writes telemetry over UART, so something must relay UART→MQTT.
+> Either the course pynqbridge/ESP32 relay does this (then just run the
+> firmware), or run the bundled fallback bridge **on the PYNQ**:
+> `tools/uart_mqtt_bridge.py` (reads the firmware's framed JSON from a serial
+> port and republishes to `/pynqbridge/<username>/send`; confirm the serial
+> device first). See `user-interface-module/docs/verification-and-responsibility-boundary.md`.
 
 ## Quick Start
 

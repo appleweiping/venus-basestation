@@ -75,24 +75,27 @@ these additional fixes (all the UI side now survives realistic bad input):
 These are NOT base-station defects; they determine whether live telemetry
 appears once the topic is correct:
 
-- The compiled firmware (`mapping-new/.../navigation-module`) emits only
-  `position_update` over **UART** (4-byte LE length prefix + JSON), never over
-  MQTT. Telemetry reaches the broker only if a UART→MQTT bridge process runs
-  on the PYNQ and republishes to `/pynqbridge/robot_43_1/send`. **No such
-  bridge exists in the team repo.** If the teammate instead runs the Python
-  `hybrid_publisher_course.py` on the PYNQ, telemetry (including rocks) flows
-  directly and the map populates. Confirm which process actually publishes.
-- With the real firmware, only the robot track appears — the rock/cliff/etc.
-  panels stay empty by design, because no C code emits those events (they
-  exist only in the Python test publisher).
-- The firmware's `communication.c` formats `robot_id` (a `char`) with `%s`,
-  which is undefined behavior and would emit a malformed/empty `robot_id`.
-  Our parser drops a message with an empty `robot_id`; the fix belongs in the
-  firmware (`%c`, or `const char *robot_id = "A";`).
+- The integrated firmware (`main` branch `applications/communication`) emits
+  `position_update` / `block_found` / `border_found` / `mountain_found` /
+  `cliff_found` over **UART0** (4-byte LE length prefix + JSON, via json-c),
+  never over MQTT. Telemetry reaches the broker only if something relays
+  UART→MQTT and republishes to `/pynqbridge/robot_43_1/send`. No team branch
+  contains such a relay, so either the course pynqbridge/ESP32 does it
+  (confirm with the teammate), or run the bundled fallback
+  `tools/uart_mqtt_bridge.py` on the PYNQ. If the teammate instead runs the
+  Python `hybrid_publisher_course.py`, telemetry flows directly. Confirm which
+  process actually publishes. (The base-station parser already accepts all of
+  the `*_found` message types the current firmware emits, verified against the
+  real `main`-branch code.)
+- The current `main`-branch `communication.c` builds its JSON correctly with
+  json-c (`robot_id` is the string `"A"`, coordinates are forced to two
+  decimals). An earlier `mapping-new` snapshot formatted `robot_id` (a `char`)
+  with `%s` — undefined behavior — but that is not present in the integrated
+  `main` code, so there is no firmware string bug to fix there.
 
 Note: the end-to-end roundtrip used the Python publisher's wire format, which
-matches the firmware's intended `position_update` JSON, so the base station is
-proven correct for documented payloads regardless of the robot-side caveats.
+matches the firmware's `position_update` JSON, so the base station is proven
+correct for documented payloads regardless of the robot-side caveats.
 
 ## Robot Command Uplink Verification (2026-06-12, v0.3.0)
 
