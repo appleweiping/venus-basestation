@@ -53,7 +53,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--command-topic",
-        help="Override the robot command topic (default: derived /pynqbridge/<board>/recv).",
+        help="Override the robot command topic (default: derived /pynqbridge/<username>/recv).",
     )
     parser.add_argument(
         "--mqtt-timeout",
@@ -130,7 +130,18 @@ def main() -> None:
         _run_mqtt_tk(args, config, state, dashboard)
         return
 
-    subscriber = _build_subscriber(config, on_observation=lambda observation: (state.apply(observation), dashboard and dashboard.draw(state)))
+    if dashboard is not None:
+        # Tk already returned above, so a remaining dashboard is matplotlib.
+        # Live MQTT + matplotlib is a degraded path: run_forever() monopolizes
+        # the main thread and the figure never updates interactively. Steer to
+        # the Tk UI (the default and the verified live path) or headless output.
+        raise SystemExit(
+            "live MQTT with --ui matplotlib is not supported (the figure does not update from the "
+            "network loop). Use --ui tk (default) for the live dashboard, or --headless with "
+            "--save-state / --save-figure / --mqtt-check for matplotlib/SVG output."
+        )
+
+    subscriber = _build_subscriber(config, on_observation=state.apply)
     try:
         subscriber.run_forever()
     except OSError as exc:
@@ -170,7 +181,10 @@ def _run_send_command(args, config: dict) -> None:
             f"MQTT command could not be sent to {config['host']}:{config['port']}: {exc}. "
             "Check TU/e network/VPN, broker availability, host, port, username, and password."
         ) from exc
-    print(f"sent command '{args.send_command}' to {topic}")
+    # The broker PUBACK proves only that the broker accepted the publish, not
+    # that the robot received it — be explicit so an undelivered command is
+    # never read as success.
+    print(f"command '{args.send_command}' queued at broker for {topic} (broker accepted; robot receipt unconfirmed)")
 
 
 def _run_mqtt_check(args, config: dict, state: MapState, dashboard) -> None:

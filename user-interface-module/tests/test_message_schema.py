@@ -1,4 +1,33 @@
+import pytest
+
 from venus_basestation.message_schema import parse_observation
+
+
+def test_parse_observation_rejects_non_finite_coordinates() -> None:
+    # json.loads accepts bare NaN/Infinity; a non-finite coordinate must be
+    # rejected like any malformed field so it can never poison the map/render.
+    for bad in ('{"robot_id":"A","type":"position_update","x":NaN,"y":0}',
+                '{"robot_id":"A","type":"position_update","x":0,"y":Infinity}'):
+        with pytest.raises(ValueError):
+            parse_observation(bad)
+
+
+def test_parse_observation_malformed_input_raises_valueerror() -> None:
+    # Every malformed shape must raise ValueError (a single contract), so the
+    # subscriber drops the frame instead of dying on an unexpected TypeError.
+    for bad in (
+        "[1, 2, 3]",  # top-level array
+        "42",  # top-level number
+        "null",  # top-level null
+        '{"robot_id":"A","type":"position_update","x":[1,2],"y":0}',  # list coordinate
+    ):
+        with pytest.raises(ValueError):
+            parse_observation(bad)
+
+
+def test_parse_observation_unknown_type_is_named_in_error() -> None:
+    with pytest.raises(ValueError, match="frobnicate"):
+        parse_observation('{"robot_id":"A","type":"frobnicate","x":0,"y":0}')
 
 
 def test_parse_rock_observation() -> None:

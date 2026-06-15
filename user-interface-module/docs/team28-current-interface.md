@@ -6,15 +6,24 @@ It is not a final contract. It is the best current bridge between the communicat
 
 ## Current MQTT Settings
 
-The teammate-provided course broker settings currently use numeric communication-board topics:
+The pynqbridge identifies each board by its **full MQTT username**, so the
+live topics use `robot_15_1` / `robot_43_1` verbatim — not a bare board
+number. This was verified against Team 28's own communication-module code
+(`hybrid_publisher_course.py` and `subscriber_course.py`), which publish to
+`/pynqbridge/robot_43_1/send`:
 
 ```text
 host: mqtt.ics.ele.tue.nl
-robot A topic: /pynqbridge/15/send
+robot A topic: /pynqbridge/robot_15_1/send
 robot A username: robot_15_1
-robot B topic: /pynqbridge/43/send
+robot B topic: /pynqbridge/robot_43_1/send
 robot B username: robot_43_1
 ```
+
+> A previous base-station build derived `/pynqbridge/15/send` from the board
+> number. MQTT topic matching is exact, so the dashboard subscribed to a topic
+> the robot never published to and showed an empty map ("interface doesn't
+> work"). Deriving the topic from the full username fixes this.
 
 Passwords should not be copied into this repository or committed. Set the matching password locally with:
 
@@ -22,20 +31,22 @@ Passwords should not be copied into this repository or committed. Set the matchi
 $env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
 ```
 
-The base station derives the numeric topic from `VENUS_MQTT_USERNAME` when
-`VENUS_MQTT_TOPICS` is not set. For explicit local setup with robot A:
+The base station derives the topic from `VENUS_MQTT_USERNAME` when
+`VENUS_MQTT_TOPICS` is not set. The simplest setup is to leave the topic
+unset and let it derive:
 
 ```powershell
 $env:PYTHONPATH="src"
 $env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
 $env:VENUS_MQTT_USERNAME="robot_15_1"
 $env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
-$env:VENUS_MQTT_TOPICS="/pynqbridge/15/send"
 python -m venus_basestation --source mqtt --headless --save-state outputs\live_mqtt_state.json
 ```
 
-For robot B, use `VENUS_MQTT_USERNAME="robot_43_1"` and
-`VENUS_MQTT_TOPICS="/pynqbridge/43/send"` with robot B's matching password.
+This derives `/pynqbridge/robot_15_1/send`. For robot B, use
+`VENUS_MQTT_USERNAME="robot_43_1"` (deriving `/pynqbridge/robot_43_1/send`)
+with robot B's matching password. Override with `VENUS_MQTT_TOPICS` only if
+the bridge topic ever differs from this convention.
 
 For the Tkinter UI:
 
@@ -72,8 +83,16 @@ The embedded module confirmed the broker constraints (host
 `mqtt.ics.ele.tue.nl`, port `1883`, standard unencrypted TCP, board
 credentials as above) and defined the inbound control channel:
 
-- The robot **subscribes** to `/pynqbridge/43/recv` (board 43; the base
-  station derives `/pynqbridge/<board>/recv` from the username).
+- The robot **subscribes** to its command topic; the base station derives
+  `/pynqbridge/<username>/recv` from the username (so robot B is
+  `/pynqbridge/robot_43_1/recv`), mirroring the send-topic convention proven
+  in the team's own code.
+  > The 2026-06-12 spec text wrote this as `/pynqbridge/43/recv` (bare board
+  > number), which conflicts with the full-username form the team's running
+  > publisher uses on the send side. We default to the full-username form for
+  > consistency and keep it overridable via `VENUS_MQTT_COMMAND_TOPIC` /
+  > `--command-topic`. **Confirm the exact recv topic with the embedded
+  > teammate before the first live command to the real robot.**
 - The robot processes structural state changes cleanly **upon completing its
   active execution iteration step** — commands are not applied mid-iteration,
   so the UI reports "sent", and the actual state change is confirmed by

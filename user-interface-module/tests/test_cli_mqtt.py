@@ -3,6 +3,17 @@ import pytest
 from venus_basestation.__main__ import main
 
 
+@pytest.fixture(autouse=True)
+def _course_username(monkeypatch):
+    # The course broker always authenticates with a board username; the topic
+    # is derived from it. Set a valid one so these checks exercise the broker
+    # path rather than the "no derivable topic" guard.
+    monkeypatch.delenv("VENUS_MQTT_PROFILE", raising=False)
+    monkeypatch.delenv("VENUS_MQTT_TOPICS", raising=False)
+    monkeypatch.delenv("VENUS_MQTT_TOPIC", raising=False)
+    monkeypatch.setenv("VENUS_MQTT_USERNAME", "robot_43_1")
+
+
 def test_mqtt_check_reports_connection_failure(monkeypatch) -> None:
     monkeypatch.setattr(
         "sys.argv",

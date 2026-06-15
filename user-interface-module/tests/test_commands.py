@@ -31,9 +31,12 @@ def test_build_command_rejects_unknown_command() -> None:
 
 
 def test_default_course_command_topic_derives_recv_topic() -> None:
-    assert default_course_command_topic("robot_15_1") == "/pynqbridge/15/recv"
-    assert default_course_command_topic("robot_43_1") == "/pynqbridge/43/recv"
-    assert default_course_command_topic("unexpected") == "/pynqbridge/43/recv"
+    assert default_course_command_topic("robot_15_1") == "/pynqbridge/robot_15_1/recv"
+    assert default_course_command_topic("robot_43_1") == "/pynqbridge/robot_43_1/recv"
+    # A malformed/typo username refuses to derive a command topic, so an
+    # E-STOP can never be silently misdirected to another board.
+    assert default_course_command_topic("unexpected") == ""
+    assert default_course_command_topic("robot43") == ""
 
 
 def test_mqtt_config_derives_command_topic_from_username(monkeypatch) -> None:
@@ -43,7 +46,7 @@ def test_mqtt_config_derives_command_topic_from_username(monkeypatch) -> None:
 
     config = mqtt_config_from_env()
 
-    assert config["command_topic"] == "/pynqbridge/15/recv"
+    assert config["command_topic"] == "/pynqbridge/robot_15_1/recv"
 
 
 def test_mqtt_config_command_topic_env_override(monkeypatch) -> None:
@@ -248,10 +251,11 @@ def test_cli_send_command_publishes_to_derived_topic(monkeypatch, capsys) -> Non
     main()
 
     topic, payload = sent[0]
-    assert topic == "/pynqbridge/15/recv"
+    assert topic == "/pynqbridge/robot_15_1/recv"
     assert json.loads(payload) == {"command": "start", "arguments": ["--verbose"]}
     output = capsys.readouterr().out
-    assert "sent command 'start' to /pynqbridge/15/recv" in output
+    # Honest wording: broker accepted the publish, robot receipt unconfirmed.
+    assert "queued at broker for /pynqbridge/robot_15_1/recv" in output
     assert "password=" in output  # sanitized config echo, never the value
 
 
@@ -274,6 +278,9 @@ def test_cli_send_command_topic_override(monkeypatch) -> None:
 
 def test_cli_send_command_reports_connection_failure(monkeypatch) -> None:
     monkeypatch.setattr("sys.argv", ["venus_basestation", "--source", "mqtt", "--send-command", "stop"])
+    monkeypatch.delenv("VENUS_MQTT_PROFILE", raising=False)
+    monkeypatch.delenv("VENUS_MQTT_COMMAND_TOPIC", raising=False)
+    monkeypatch.setenv("VENUS_MQTT_USERNAME", "robot_43_1")  # valid -> topic derives, reaches send
 
     def fail_send(self, topic: str, payload: str, timeout: float = 10.0) -> None:
         raise OSError("timed out connecting to broker after 10s")
@@ -313,6 +320,25 @@ def test_cli_send_command_rejects_blank_topic_override(monkeypatch) -> None:
         "sys.argv",
         ["venus_basestation", "--source", "mqtt", "--send-command", "start", "--command-topic", "   "],
     )
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert "command topic is not configured" in str(exc.value)
+
+
+def test_cli_send_command_refuses_malformed_username(monkeypatch) -> None:
+    # Safety: a typo'd username derives no command topic, so the command is
+    # refused rather than silently misdirected to the fallback board.
+    monkeypatch.setattr("sys.argv", ["venus_basestation", "--source", "mqtt", "--send-command", "stop"])
+    monkeypatch.delenv("VENUS_MQTT_PROFILE", raising=False)
+    monkeypatch.delenv("VENUS_MQTT_COMMAND_TOPIC", raising=False)
+    monkeypatch.setenv("VENUS_MQTT_USERNAME", "robot43")  # missing the _N suffix
+
+    def fail_send(self, topic: str, payload: str, timeout: float = 10.0) -> None:
+        raise AssertionError("send must not be reached for a malformed username")
+
+    monkeypatch.setattr("venus_basestation.mqtt_client.MqttCommandSender.send", fail_send)
 
     with pytest.raises(SystemExit) as exc:
         main()

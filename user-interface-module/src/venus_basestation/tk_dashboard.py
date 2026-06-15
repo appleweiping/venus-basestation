@@ -431,10 +431,15 @@ class TkDashboard:
             self._command_status.config(text=f"'{command}' failed: {exc}", fg=t.danger)
             self._set_status(f"command '{command}' failed: {exc}")
             return
-        label = {"start": "START sent", "idle": "IDLE sent", "stop": "E-STOP sent"}[command]
+        # A QoS-1 PUBACK only proves the broker accepted the publish; MQTT
+        # never reports whether any client is subscribed. Say "queued", not
+        # "sent", so an operator never trusts an undelivered command (e.g. an
+        # E-STOP to a topic no robot is listening on). Robot receipt is
+        # confirmed only by returning telemetry.
+        label = {"start": "START queued", "idle": "IDLE queued", "stop": "E-STOP QUEUED"}[command]
         color = t.danger if command == "stop" else t.ok
-        self._command_status.config(text=f"{label} → {topic} (awaiting robot telemetry)", fg=color)
-        self._set_status(f"command '{command}' published to {topic}")
+        self._command_status.config(text=f"{label} → {topic} · broker accepted, robot receipt unconfirmed", fg=color)
+        self._set_status(f"command '{command}' queued at broker for {topic} (confirm via telemetry)")
 
     def _build_footer(self) -> None:
         tk = self.tk
@@ -599,26 +604,37 @@ class TkDashboard:
             self._messages_counted = state.messages_seen
 
     def _pump(self, interval_ms: int) -> None:
-        drained = 0
-        while drained < 500:
-            try:
-                kind, payload = self._queue.get_nowait()
-            except Empty:
-                break
-            drained += 1
-            if kind == "obs" and self._state is not None:
-                self._state.apply(payload)
-            elif kind == "conn":
-                ok, broker = payload
-                self.set_connection_status(ok, broker)
-            elif kind == "log":
-                self._set_status(str(payload))
-        if drained and self._state is not None:
-            self._account_messages(self._state)
-            self._mark_dirty()
-        if self._dirty and not self._paused:
-            self._render()
-        self.root.after(interval_ms, lambda: self._pump(interval_ms))
+        # The whole live UI rides on this self-rescheduling after-chain. If any
+        # apply()/render() ever raised, the reschedule would be skipped and the
+        # dashboard would freeze permanently (only a stderr traceback). Isolate
+        # per-event failures and guarantee the reschedule in finally.
+        try:
+            drained = 0
+            while drained < 500:
+                try:
+                    kind, payload = self._queue.get_nowait()
+                except Empty:
+                    break
+                drained += 1
+                try:
+                    if kind == "obs" and self._state is not None:
+                        self._state.apply(payload)
+                    elif kind == "conn":
+                        ok, broker = payload
+                        self.set_connection_status(ok, broker)
+                    elif kind == "log":
+                        self._set_status(str(payload))
+                except Exception:  # one bad event must not stall the pump
+                    pass
+            if drained and self._state is not None:
+                self._account_messages(self._state)
+                self._mark_dirty()
+            if self._dirty and not self._paused:
+                self._render()
+        except Exception:  # never let a render glitch kill the live loop
+            pass
+        finally:
+            self.root.after(interval_ms, lambda: self._pump(interval_ms))
 
     def _tick_clock(self) -> None:
         elapsed = int(time.monotonic() - self._started)

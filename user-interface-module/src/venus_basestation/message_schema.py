@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 from typing import Any
 
 
@@ -83,7 +84,14 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
         payload = _strip_text_prefix(payload)
         data = json.loads(payload)
     else:
-        data = dict(payload)
+        data = payload
+    # A top-level JSON value that is not an object (list, number, null, etc.)
+    # must fail as a ValueError like any other malformed message, not raise a
+    # TypeError out of dict() — the caller drops the frame either way, but the
+    # contract stays a single exception type.
+    if not isinstance(data, dict):
+        raise ValueError(f"message must be a JSON object, got {type(data).__name__}")
+    data = dict(data)
 
     data = normalize_team_payload(data)
     robot_id = str(data.get("robot_id", "")).strip()
@@ -92,7 +100,8 @@ def parse_observation(payload: str | bytes | dict[str, Any]) -> Observation:
     if not robot_id:
         raise ValueError("robot_id is required")
     if event_type not in VALID_EVENT_TYPES:
-        raise ValueError(f"unsupported event_type: {event_type!r}")
+        raw_type = data.get("type") or data.get("message_type") or data.get("event") or event_type
+        raise ValueError(f"unsupported event_type: {raw_type!r}")
 
     x = _optional_float(data.get("x"))
     y = _optional_float(data.get("y"))
@@ -184,7 +193,19 @@ def _strip_text_prefix(payload: str) -> str:
 def _optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
-    return float(value)
+    try:
+        result = float(value)
+    except TypeError as exc:
+        # A list/dict where a number was expected — surface as ValueError so
+        # the frame is dropped consistently rather than raising TypeError.
+        raise ValueError(f"expected a number, got {type(value).__name__}") from exc
+    # json.loads accepts bare NaN/Infinity. A non-finite coordinate would
+    # poison the map bounds and crash rendering (math.log10(inf) in the grid
+    # step, Tk canvas with inf). Reject it like any other malformed field so
+    # the caller drops just that frame.
+    if not math.isfinite(result):
+        raise ValueError(f"non-finite numeric value: {value!r}")
+    return result
 
 
 def _optional_str(value: Any) -> str | None:
