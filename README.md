@@ -103,6 +103,39 @@ PYTHONPATH=src python -m venus_basestation --source mqtt --send-command stop --c
 
 ---
 
+## Connect to the robot (live) — start here
+
+If the dashboard only shows **simulated example data**, it just means no
+credentials are configured yet. To connect to the real robot:
+
+1. `cd user-interface-module`
+2. Copy `.env.example` to `.env` and set your board credentials:
+   ```
+   VENUS_MQTT_USERNAME=robot_43_1
+   VENUS_MQTT_PASSWORD=<your board password>
+   ```
+   (Leave the topic unset — it is derived as `/pynqbridge/robot_43_1/send`.)
+3. Launch:
+   ```powershell
+   .\run-dashboard.ps1
+   ```
+   or directly: `PYTHONPATH=src python -m venus_basestation` — with credentials
+   set it **auto-connects** (no `--source` needed). With no credentials it
+   prints how to connect and falls back to simulated data.
+
+Verify the broker login without opening a window:
+
+```powershell
+PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0
+```
+
+> If it connects but the map stays empty (`processed 0 messages`), the broker
+> link is fine but **nothing is publishing** to your topic yet. Confirm the
+> robot side is running a process that publishes to `/pynqbridge/<username>/send`
+> (the Python `hybrid_publisher_course.py`, or a UART→MQTT bridge if you flash
+> the C firmware — the firmware alone only sends over UART). See
+> `user-interface-module/docs/verification-and-responsibility-boundary.md`.
+
 ## Quick Start
 
 ```bash
@@ -110,6 +143,9 @@ cd user-interface-module
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+# Connect to the robot (credentials in .env) — auto-selects MQTT:
+PYTHONPATH=src python -m venus_basestation
+# Or explicitly choose a source:
 PYTHONPATH=src python -m venus_basestation --source simulated
 ```
 
@@ -135,7 +171,7 @@ PYTHONPATH=src python -m venus_basestation \
   --save-state outputs/state.json
 ```
 
-Connect to a live MQTT broker:
+Connect to a live MQTT broker (explicit form; the `.env` flow above is simpler):
 
 ```bash
 export VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl

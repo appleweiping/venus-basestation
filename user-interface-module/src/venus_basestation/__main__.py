@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import threading
 
 from .dashboard import MatplotlibDashboard
+from .env_config import has_mqtt_credentials, load_dotenv, resolve_source
 from .fake_messages import simulated_messages
 from .io_utils import iter_jsonl_messages, write_state_summary
 from .map_state import MapState
@@ -21,8 +23,20 @@ from .svg_snapshot import write_svg_snapshot
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--source", choices=["simulated", "mqtt", "jsonl"], default="simulated")
+    # Read a local .env (copied from .env.example) so credentials live in one
+    # file. Shell exports still win — load_dotenv never overrides them.
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(
+        description="Venus base-station dashboard. With no --source it connects to the robot "
+        "when MQTT credentials are configured, otherwise it shows simulated demo data.",
+    )
+    parser.add_argument(
+        "--source",
+        choices=["simulated", "mqtt", "jsonl"],
+        default=None,
+        help="Data source. Default: mqtt when credentials are set, else simulated.",
+    )
     parser.add_argument("--headless", action="store_true", help="Process data without opening a dashboard window.")
     parser.add_argument(
         "--ui",
@@ -69,8 +83,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Resolve the source: explicit --source wins; otherwise pick mqtt when
+    # credentials are configured, else simulated. Print which and why.
+    args.source, source_hint = resolve_source(args.source, has_credentials=has_mqtt_credentials())
+    if source_hint:
+        print(source_hint)
+
     if args.send_command and args.source != "mqtt":
-        raise SystemExit("--send-command requires --source mqtt")
+        raise SystemExit("--send-command requires --source mqtt (set credentials or pass --source mqtt)")
     if args.send_command and (args.save_state or args.save_figure):
         raise SystemExit(
             "--send-command publishes one command and exits without processing telemetry; "
