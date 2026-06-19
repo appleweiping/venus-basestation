@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from venus_basestation.env_config import has_mqtt_credentials, load_dotenv, resolve_source
+from venus_basestation.env_config import (
+    has_mqtt_credentials,
+    load_dotenv,
+    mqtt_accounts_from_env,
+    resolve_source,
+)
 
 
 def test_load_dotenv_populates_unset_keys(tmp_path: Path) -> None:
@@ -65,3 +70,27 @@ def test_has_mqtt_credentials() -> None:
     assert has_mqtt_credentials({"VENUS_MQTT_USERNAME": "robot_43_1"}) is True
     assert has_mqtt_credentials({"VENUS_MQTT_USERNAME": "   "}) is False
     assert has_mqtt_credentials({}) is False
+    # Multi-account config also counts as having credentials.
+    assert has_mqtt_credentials({"VENUS_MQTT_ACCOUNTS": "robot_15_1:pw"}) is True
+
+
+def test_mqtt_accounts_from_env_parses_list() -> None:
+    accounts = mqtt_accounts_from_env({"VENUS_MQTT_ACCOUNTS": "robot_15_1:pw15, robot_43_1:pw43"})
+    assert accounts == [
+        {"username": "robot_15_1", "password": "pw15"},
+        {"username": "robot_43_1", "password": "pw43"},
+    ]
+
+
+def test_mqtt_accounts_from_env_dedupes_and_skips_blank() -> None:
+    accounts = mqtt_accounts_from_env({"VENUS_MQTT_ACCOUNTS": "robot_15_1:a,,robot_15_1:b"})
+    assert accounts == [{"username": "robot_15_1", "password": "a"}]
+
+
+def test_mqtt_accounts_from_env_falls_back_to_single() -> None:
+    accounts = mqtt_accounts_from_env({"VENUS_MQTT_USERNAME": "robot_43_1", "VENUS_MQTT_PASSWORD": "pw"})
+    assert accounts == [{"username": "robot_43_1", "password": "pw"}]
+
+
+def test_mqtt_accounts_from_env_empty_when_unset() -> None:
+    assert mqtt_accounts_from_env({}) == []

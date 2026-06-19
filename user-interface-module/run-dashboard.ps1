@@ -26,4 +26,4 @@ if (Test-Path ".venv\Scripts\python.exe") {
 }
 
 Write-Host "Launching Venus Basestation dashboard with $py ..." -ForegroundColor Cyan
-& $py -m venus_basestation --source mqtt --ui tk
+& $py -m venus_basestation --ui tk

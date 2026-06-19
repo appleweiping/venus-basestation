@@ -71,7 +71,7 @@ Tkinter, zero extra dependencies):
 ### Robot command uplink
 
 Per the Team 28 embedded spec, the robot subscribes to
-`/pynqbridge/<username>/recv` and applies commands **at the end of its active
+`/pynqbridge/<board>/recv` and applies commands **at the end of its active
 execution iteration step**. The base station publishes these QoS 1 payloads:
 
 | Command | Payload | Effect |
@@ -81,16 +81,16 @@ execution iteration step**. The base station publishes these QoS 1 payloads:
 | E-Stop | `{"command":"stop","arguments":[]}` | Halt loops, tear down peripherals, terminate the embedded app |
 
 In live MQTT mode the dashboard shows a **COMMAND UPLINK** panel
-(START / IDLE / E-STOP). Button feedback confirms the *send* only — actual
+(START / IDLE / E-STOP). Button feedback confirms the *send* only; actual
 robot state is confirmed by returning telemetry. The command topic is derived
-from the username (`robot_43_1` → `/pynqbridge/robot_43_1/recv`) and can be
+from the username (`robot_43_1` -> `/pynqbridge/43/recv`) and can be
 overridden with `VENUS_MQTT_COMMAND_TOPIC` or `--command-topic`.
 
 Headless one-shot command (demo prep / scripting):
 
 ```bash
 PYTHONPATH=src python -m venus_basestation --source mqtt --send-command start
-PYTHONPATH=src python -m venus_basestation --source mqtt --send-command stop --command-topic /pynqbridge/robot_43_1/recv
+PYTHONPATH=src python -m venus_basestation --source mqtt --send-command stop --command-topic /pynqbridge/43/recv
 ```
 
 **Input sources** (selectable at runtime):
@@ -114,7 +114,8 @@ credentials are configured yet. To connect to the real robot:
    VENUS_MQTT_USERNAME=robot_43_1
    VENUS_MQTT_PASSWORD=<your board password>
    ```
-   (Leave the topic unset — it is derived as `/pynqbridge/robot_43_1/send`.)
+   (Leave the topic unset; it is derived as `/pynqbridge/43/send`, with a
+   full-username fallback subscription for older scripts.)
 3. Launch:
    ```powershell
    .\run-dashboard.ps1
@@ -122,6 +123,18 @@ credentials are configured yet. To connect to the real robot:
    or directly: `PYTHONPATH=src python -m venus_basestation` — with credentials
    set it **auto-connects** (no `--source` needed). With no credentials it
    prints how to connect and falls back to simulated data.
+
+**Two robots at once:** the broker locks each credential to its own board, so
+showing both team robots means one connection per account. In `.env`, set
+`VENUS_MQTT_ACCOUNTS` to a comma-separated `user:password` list:
+
+```
+VENUS_MQTT_ACCOUNTS=robot_43_1:<pw43>,robot_15_1:<pw15>
+```
+
+The dashboard then connects to both boards and labels each robot by board
+(`43:A`, `15:A`) so they stay distinct on the map. Command buttons target the
+account that matches `VENUS_MQTT_USERNAME`.
 
 Verify the broker login without opening a window:
 
@@ -135,7 +148,7 @@ PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0
 > Either the course pynqbridge/ESP32 relay does this (then just run the
 > firmware), or run the bundled fallback bridge **on the PYNQ**:
 > `tools/uart_mqtt_bridge.py` (reads the firmware's framed JSON from a serial
-> port and republishes to `/pynqbridge/<username>/send`; confirm the serial
+> port and republishes to `/pynqbridge/<board>/send`; confirm the serial
 > device first). See `user-interface-module/docs/verification-and-responsibility-boundary.md`.
 
 ## Quick Start
@@ -179,15 +192,16 @@ Connect to a live MQTT broker (explicit form; the `.env` flow above is simpler):
 export VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
 export VENUS_MQTT_USERNAME=robot_15_1
 export VENUS_MQTT_PASSWORD=<password>
-# topic is derived from the username — no need to set VENUS_MQTT_TOPICS
+# topic is derived from the username; no need to set VENUS_MQTT_TOPICS
 PYTHONPATH=src python -m venus_basestation --source mqtt --ui tk
 ```
 
-The pynqbridge addresses each board by its **full username**, e.g.
-`/pynqbridge/robot_15_1/send` for `robot_15_1` and `/pynqbridge/robot_43_1/send`
-for `robot_43_1` (matching Team 28's robot publisher). If `VENUS_MQTT_TOPICS`
-is not set, the base station derives this topic from `VENUS_MQTT_USERNAME`, so
-the simplest correct setup is to leave it unset.
+The current Team 28 bridge addresses each board by its **bare board number**:
+`robot_15_1` publishes on `/pynqbridge/15/send`, and `robot_43_1` publishes on
+`/pynqbridge/43/send`. If `VENUS_MQTT_TOPICS` is not set, the base station
+derives these topics from `VENUS_MQTT_USERNAME` and also subscribes to the
+older full-username form as a fallback, so the simplest correct setup is to
+leave the topic unset.
 
 Verify broker connectivity without opening the UI:
 
@@ -281,7 +295,7 @@ The current Team 28 UART test sends robot-to-ESP32 messages as `4-byte payload l
 | `VENUS_MQTT_USERNAME` | Username |
 | `VENUS_MQTT_PASSWORD` | Password — never commit this |
 | `VENUS_MQTT_TOPICS` | Comma-separated telemetry topic list |
-| `VENUS_MQTT_COMMAND_TOPIC` | Robot command topic (default: derived `/pynqbridge/<username>/recv`) |
+| `VENUS_MQTT_COMMAND_TOPIC` | Robot command topic (default: derived `/pynqbridge/<board>/recv`) |
 
 ---
 

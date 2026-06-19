@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import dataclasses
 import json
 import os
 import re
@@ -15,14 +16,13 @@ ConnectionHandler = Callable[[bool, str], None]
 
 DEFAULT_MQTT_HOST = "mqtt.ics.ele.tue.nl"
 DEFAULT_MQTT_PORT = 1883
-# The pynqbridge identifies a board by its FULL MQTT username, not the bare
-# board number. Confirmed against Team 28's own communication-module code
-# (hybrid_publisher_course.py / subscriber_course.py), which publishes to
-# "/pynqbridge/robot_43_1/send". An earlier numeric derivation
-# ("/pynqbridge/43/send") never matched the live topic, so the dashboard
-# received zero messages and showed an empty map. The canonical course topics
-# are "/pynqbridge/<username>/send" and "/pynqbridge/<username>/recv".
-COURSE_USERNAME_RE = re.compile(r"^robot_\d+_\d+$")
+# The course bridge has appeared in two topic conventions during integration:
+# older teammate test scripts used the full MQTT username, while the current
+# embedded interface says robots publish/receive on the bare board number
+# (robot_43_1 -> /pynqbridge/43/{send,recv}). Subscribe to both telemetry
+# forms so stale docs/scripts do not blank the dashboard; use the current bare
+# board command topic by default because commands must target one channel.
+COURSE_USERNAME_RE = re.compile(r"^robot_(?P<board>\d+)_\d+$")
 
 # Test broker used by communication-module (hybrid_publisher_test.py)
 TEST_MQTT_HOST = "broker.hivemq.com"
@@ -30,13 +30,10 @@ TEST_MQTT_TOPICS = ["energy_venus/team28/test"]
 TEST_MQTT_COMMAND_TOPIC = "energy_venus/team28/test/recv"
 TEST_MQTT_PORT = 1883
 
-# Robot command interface (Team 28 embedded spec, received 2026-06-12).
-# The robot subscribes to /pynqbridge/<username>/recv and applies commands
-# at the end of its active execution iteration step. NOTE: the spec text
-# wrote the topic as "/pynqbridge/43/recv", but the team's running code uses
-# the full username on the send side, so we mirror that convention here for
-# consistency. The recv topic stays overridable (VENUS_MQTT_COMMAND_TOPIC /
-# --command-topic) until confirmed live with the embedded teammate.
+# Robot command interface (Team 28 embedded spec, updated 2026-06-16).
+# The robot subscribes to /pynqbridge/<board>/recv and applies commands at the
+# end of its active execution iteration step. The recv topic stays overridable
+# (VENUS_MQTT_COMMAND_TOPIC / --command-topic) for last-minute demo changes.
 VALID_COMMANDS = ("start", "idle", "stop")
 DEFAULT_COMMAND_ARGUMENTS: dict[str, list[str]] = {
     "start": ["--verbose"],
@@ -59,30 +56,44 @@ def build_command(command: str, arguments: list[str] | None = None) -> str:
     return json.dumps({"command": command, "arguments": payload_arguments}, separators=(",", ":"))
 
 
-def default_course_topics(username: str) -> list[str]:
-    """Telemetry topic the robot publishes to: /pynqbridge/<username>/send.
+def _course_board_id(username: str) -> str:
+    match = COURSE_USERNAME_RE.fullmatch(username.strip())
+    return match.group("board") if match else ""
 
-    The bridge id is the full MQTT username (e.g. ``robot_43_1``), matching
-    Team 28's communication-module publisher. Returns an empty list when the
-    username is missing or malformed, rather than guessing a board: a typo'd
-    credential must refuse to derive a topic instead of silently targeting
-    another team's board. Callers treat an empty result as "not configured".
+
+def course_board_id(username: str) -> str:
+    """Public: the bare board number for a course username (``robot_43_1`` ->
+    ``43``), or ``""`` if the username is not a course credential. Used to label
+    each robot's telemetry when several boards share one dashboard."""
+    return _course_board_id(username)
+
+
+def default_course_topics(username: str) -> list[str]:
+    """Telemetry topics to subscribe to for a course robot.
+
+    Current Team 28 robots publish to the bare board topic
+    ``/pynqbridge/<board>/send`` (e.g. ``robot_43_1`` -> ``/pynqbridge/43/send``).
+    The full-username topic is also subscribed as a compatibility fallback for
+    older teammate scripts. Returns an empty list for missing/malformed
+    usernames rather than guessing another team's board.
     """
     uname = username.strip()
-    if COURSE_USERNAME_RE.fullmatch(uname):
-        return [f"/pynqbridge/{uname}/send"]
+    board = _course_board_id(uname)
+    if board:
+        return [f"/pynqbridge/{board}/send", f"/pynqbridge/{uname}/send"]
     return []
 
 
 def default_course_command_topic(username: str) -> str:
-    """Command topic the robot subscribes to: /pynqbridge/<username>/recv.
+    """Command topic the robot subscribes to: /pynqbridge/<board>/recv.
 
     Returns an empty string for a missing/malformed username so a typo cannot
     silently misdirect a command (e.g. an E-STOP) to another board's topic.
     """
     uname = username.strip()
-    if COURSE_USERNAME_RE.fullmatch(uname):
-        return f"/pynqbridge/{uname}/recv"
+    board = _course_board_id(uname)
+    if board:
+        return f"/pynqbridge/{board}/recv"
     return ""
 
 
@@ -142,6 +153,7 @@ class MqttSubscriber:
         password: str = "",
         on_log: LogHandler | None = None,
         on_connect_change: ConnectionHandler | None = None,
+        label: str = "",
     ) -> None:
         self.host = host
         self.port = port
@@ -149,6 +161,10 @@ class MqttSubscriber:
         self.on_observation = on_observation
         self.username = username
         self.password = password
+        # When set (multi-robot mode), each received observation's robot_id is
+        # prefixed with this label so two boards that both report robot_id "A"
+        # render as distinct tracks (e.g. "15:A" and "43:A").
+        self.label = label
         self.on_log = on_log or print
         self.on_connect_change = on_connect_change
         self.messages_seen = 0
@@ -182,8 +198,8 @@ class MqttSubscriber:
                     break
                 time.sleep(0.05)
         finally:
-            client.loop_stop()
             client.disconnect()
+            client.loop_stop()
         return self.messages_seen
 
     def run_forever(self) -> None:
@@ -282,6 +298,10 @@ class MqttSubscriber:
                 self.last_error = f"failed to parse MQTT message on {message.topic}: {exc}"
                 self.on_log(self.last_error)
                 return
+            if self.label:
+                observation = dataclasses.replace(
+                    observation, robot_id=f"{self.label}:{observation.robot_id}"
+                )
             self.messages_seen += 1
             # The handler runs on paho's network thread; an exception here would
             # propagate out of loop_forever and kill the whole subscriber (paho
@@ -370,8 +390,8 @@ class MqttCommandSender:
                 raise OSError(f"broker did not acknowledge command publish to {topic}")
             self.on_log(f"published command to {topic}: {payload}")
         finally:
-            client.loop_stop()
             client.disconnect()
+            client.loop_stop()
 
 
 def _is_success_reason(reason_code) -> bool:  # noqa: ANN001

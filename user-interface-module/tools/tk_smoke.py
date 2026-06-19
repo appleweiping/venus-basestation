@@ -62,7 +62,7 @@ def main() -> None:
 
     def loopback_handler(command: str) -> str:
         sent_commands.append(command)
-        return "/pynqbridge/robot_43_1/recv (loopback)"
+        return "/pynqbridge/43/recv (loopback)"
 
     dashboard.set_command_handler(loopback_handler)
     dashboard.root.after(1200, lambda: dashboard._dispatch_command("start"))

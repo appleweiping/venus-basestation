@@ -31,8 +31,8 @@ def test_build_command_rejects_unknown_command() -> None:
 
 
 def test_default_course_command_topic_derives_recv_topic() -> None:
-    assert default_course_command_topic("robot_15_1") == "/pynqbridge/robot_15_1/recv"
-    assert default_course_command_topic("robot_43_1") == "/pynqbridge/robot_43_1/recv"
+    assert default_course_command_topic("robot_15_1") == "/pynqbridge/15/recv"
+    assert default_course_command_topic("robot_43_1") == "/pynqbridge/43/recv"
     # A malformed/typo username refuses to derive a command topic, so an
     # E-STOP can never be silently misdirected to another board.
     assert default_course_command_topic("unexpected") == ""
@@ -46,7 +46,7 @@ def test_mqtt_config_derives_command_topic_from_username(monkeypatch) -> None:
 
     config = mqtt_config_from_env()
 
-    assert config["command_topic"] == "/pynqbridge/robot_15_1/recv"
+    assert config["command_topic"] == "/pynqbridge/15/recv"
 
 
 def test_mqtt_config_command_topic_env_override(monkeypatch) -> None:
@@ -251,11 +251,11 @@ def test_cli_send_command_publishes_to_derived_topic(monkeypatch, capsys) -> Non
     main()
 
     topic, payload = sent[0]
-    assert topic == "/pynqbridge/robot_15_1/recv"
+    assert topic == "/pynqbridge/15/recv"
     assert json.loads(payload) == {"command": "start", "arguments": ["--verbose"]}
     output = capsys.readouterr().out
     # Honest wording: broker accepted the publish, robot receipt unconfirmed.
-    assert "queued at broker for /pynqbridge/robot_15_1/recv" in output
+    assert "queued at broker for /pynqbridge/15/recv" in output
     assert "password=" in output  # sanitized config echo, never the value
 
 

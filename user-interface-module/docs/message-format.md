@@ -99,20 +99,21 @@ The course manual describes PYNQ bridge topics in this general form:
 
 The exact module identifiers and credentials should stay out of Git.
 
-The pynqbridge addresses each board by its full MQTT username, so the publish
-topic uses the whole `robot_..._.` credential (verified against the team's
-`hybrid_publisher_course.py`, which publishes to `/pynqbridge/robot_43_1/send`):
+The current Team 28 bridge addresses each board by the bare board number inside
+the MQTT username, so the publish topic uses `15` for `robot_15_1` and `43` for
+`robot_43_1`:
 
 ```text
 VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
 VENUS_MQTT_USERNAME=robot_15_1
-# topic derived automatically -> /pynqbridge/robot_15_1/send
+# topic derived automatically -> /pynqbridge/15/send
 ```
 
 Robot B follows the same rule: `robot_43_1` publishes on
-`/pynqbridge/robot_43_1/send`. If `VENUS_MQTT_TOPICS` is not set, the base
-station derives this topic from `VENUS_MQTT_USERNAME`, so the simplest correct
-setup is to leave the topic unset.
+`/pynqbridge/43/send`. If `VENUS_MQTT_TOPICS` is not set, the base station
+derives the bare-board topic from `VENUS_MQTT_USERNAME` and also subscribes to
+the older full-username form as a compatibility fallback, so the simplest
+correct setup is to leave the topic unset.
 
 Do not commit the MQTT password. Set `VENUS_MQTT_PASSWORD` locally when running
 against the TU/e broker.

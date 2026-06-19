@@ -23,6 +23,27 @@ class _RecordingClient:
         return (0, 1)
 
 
+class _RunUntilClient:
+    def __init__(self, subscriber: MqttSubscriber) -> None:
+        self.subscriber = subscriber
+        self.calls: list[str] = []
+        self.connect_timeout = 0
+
+    def connect(self, host: str, port: int) -> None:
+        self.calls.append(f"connect:{host}:{port}")
+
+    def loop_start(self) -> None:
+        self.calls.append("loop_start")
+        self.subscriber.connected = True
+        self.subscriber.subscriptions_acknowledged = len(self.subscriber.topics)
+
+    def disconnect(self) -> None:
+        self.calls.append("disconnect")
+
+    def loop_stop(self) -> None:
+        self.calls.append("loop_stop")
+
+
 def test_mqtt_config_from_env_uses_course_defaults(monkeypatch) -> None:
     monkeypatch.delenv("VENUS_MQTT_PROFILE", raising=False)
     monkeypatch.delenv("VENUS_MQTT_HOST", raising=False)
@@ -35,7 +56,7 @@ def test_mqtt_config_from_env_uses_course_defaults(monkeypatch) -> None:
 
     assert config["host"] == "mqtt.ics.ele.tue.nl"
     assert config["port"] == 1883
-    assert config["topics"] == ["/pynqbridge/robot_43_1/send"]
+    assert config["topics"] == ["/pynqbridge/43/send", "/pynqbridge/robot_43_1/send"]
 
 
 def test_mqtt_config_requires_username_to_derive_course_topic(monkeypatch) -> None:
@@ -51,11 +72,11 @@ def test_mqtt_config_requires_username_to_derive_course_topic(monkeypatch) -> No
     assert config["topics"] == []
 
 
-def test_default_course_topics_use_full_username() -> None:
-    # The pynqbridge id is the full MQTT username, matching Team 28's own
-    # publisher (/pynqbridge/robot_43_1/send) — not the bare board number.
-    assert default_course_topics("robot_15_1") == ["/pynqbridge/robot_15_1/send"]
-    assert default_course_topics("robot_43_1") == ["/pynqbridge/robot_43_1/send"]
+def test_default_course_topics_use_bare_board_plus_full_username_fallback() -> None:
+    # The current embedded interface publishes on the bare board topic, while
+    # older teammate scripts used the full username. Subscribe to both.
+    assert default_course_topics("robot_15_1") == ["/pynqbridge/15/send", "/pynqbridge/robot_15_1/send"]
+    assert default_course_topics("robot_43_1") == ["/pynqbridge/43/send", "/pynqbridge/robot_43_1/send"]
     # A malformed/typo username refuses to derive a topic instead of guessing.
     assert default_course_topics("unexpected") == []
     assert default_course_topics("robot15") == []
@@ -63,10 +84,10 @@ def test_default_course_topics_use_full_username() -> None:
 
 def test_subscribed_topic_matches_team_publisher_exactly() -> None:
     # Regression guard for the "interface doesn't work" bug: Team 28's
-    # communication-module publishes telemetry to this exact string. MQTT
-    # matching is exact, so the subscribed topic must match byte-for-byte.
-    team_publisher_topic = "/pynqbridge/robot_43_1/send"
-    assert default_course_topics("robot_43_1") == [team_publisher_topic]
+    # latest robot-B interface publishes telemetry to this exact bare-board
+    # string. MQTT matching is exact, so it must be subscribed by default.
+    team_publisher_topic = "/pynqbridge/43/send"
+    assert team_publisher_topic in default_course_topics("robot_43_1")
 
 
 def test_mqtt_config_from_env_derives_course_topic_from_username(monkeypatch) -> None:
@@ -77,7 +98,7 @@ def test_mqtt_config_from_env_derives_course_topic_from_username(monkeypatch) ->
 
     config = mqtt_config_from_env()
 
-    assert config["topics"] == ["/pynqbridge/robot_15_1/send"]
+    assert config["topics"] == ["/pynqbridge/15/send", "/pynqbridge/robot_15_1/send"]
 
 
 def test_mqtt_config_from_env_accepts_comma_separated_topics(monkeypatch) -> None:
@@ -114,6 +135,24 @@ def test_describe_mqtt_config_does_not_expose_password() -> None:
     assert "secret-password" not in text
     assert "password=set" in text
     assert "/demo/topic" in text
+
+
+def test_handle_message_labels_robot_id_when_label_set() -> None:
+    # Multi-robot mode: each board's telemetry is namespaced so two robots that
+    # both report id "A" stay distinct on the map.
+    seen: list[str] = []
+    sub = MqttSubscriber(
+        host="h",
+        port=1883,
+        topics=["/t"],
+        on_observation=lambda obs: seen.append(obs.robot_id),
+        on_log=lambda msg: None,
+        label="43",
+    )
+    client = sub._build_client()
+    client.on_message(client, None, _FakeMessage(b'{"robot_id":"A","type":"position_update","x":1,"y":2}'))
+
+    assert seen == ["43:A"]
 
 
 def test_handle_message_survives_handler_exception() -> None:
@@ -156,3 +195,20 @@ def test_handle_connect_rejection_surfaces_and_stops_retry() -> None:
     assert conn_events == [(False, "mqtt.example")]
     assert fake.disconnected is True
     assert sub.connection_error and "rejected connection" in sub.connection_error
+
+
+def test_run_until_disconnects_before_stopping_loop(monkeypatch) -> None:
+    # On the course broker, stopping paho's network loop before disconnecting
+    # can wait unexpectedly. Disconnect first so short MQTT checks exit cleanly.
+    sub = MqttSubscriber(
+        host="mqtt.example",
+        port=1883,
+        topics=["/t"],
+        on_observation=lambda obs: None,
+    )
+    fake = _RunUntilClient(sub)
+    monkeypatch.setattr(sub, "_build_client", lambda: fake)
+
+    assert sub.run_until(1, min_messages=0) == 0
+
+    assert fake.calls[-2:] == ["disconnect", "loop_stop"]

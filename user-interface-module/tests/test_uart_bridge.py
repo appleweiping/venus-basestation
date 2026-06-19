@@ -88,4 +88,4 @@ def test_oversized_length_is_rejected() -> None:
 
 def test_resolve_topic_prefers_explicit_then_username() -> None:
     assert resolve_topic("/custom/send", "robot_43_1") == "/custom/send"
-    assert resolve_topic(None, "robot_43_1") == "/pynqbridge/robot_43_1/send"
+    assert resolve_topic(None, "robot_43_1") == "/pynqbridge/43/send"

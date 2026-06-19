@@ -1,211 +1,112 @@
 # Team 28 Current Interface
 
-This note captures the current interface found in the Team 28 GitLab branches on 2026-05-08, the teammate-provided MQTT board credentials received on 2026-06-05, and the robot command interface received on 2026-06-12.
+This note captures the current base-station integration contract after the
+2026-06-16 teammate update. Do not commit real MQTT passwords; keep them in a
+local `.env` file or shell environment only.
 
-It is not a final contract. It is the best current bridge between the communication module and the user-interface/base-station module.
+## MQTT Settings
 
-## Current MQTT Settings
-
-The pynqbridge identifies each board by its **full MQTT username**, so the
-live topics use `robot_15_1` / `robot_43_1` verbatim — not a bare board
-number. This was verified against Team 28's own communication-module code
-(`hybrid_publisher_course.py` and `subscriber_course.py`), which publish to
-`/pynqbridge/robot_43_1/send`:
+The TU/e MQTT broker is:
 
 ```text
 host: mqtt.ics.ele.tue.nl
-robot A topic: /pynqbridge/robot_15_1/send
-robot A username: robot_15_1
-robot B topic: /pynqbridge/robot_43_1/send
-robot B username: robot_43_1
+port: 1883
 ```
 
-> A previous base-station build derived `/pynqbridge/15/send` from the board
-> number. MQTT topic matching is exact, so the dashboard subscribed to a topic
-> the robot never published to and showed an empty map ("interface doesn't
-> work"). Deriving the topic from the full username fixes this.
+Authentication still uses the full robot username, but the current live topics
+use the bare board number:
 
-Passwords should not be copied into this repository or committed. Set the matching password locally with:
+```text
+robot A username: robot_15_1
+robot A telemetry topic: /pynqbridge/15/send
+
+robot B username: robot_43_1
+robot B telemetry topic: /pynqbridge/43/send
+robot B command topic: /pynqbridge/43/recv
+```
+
+When `VENUS_MQTT_TOPICS` is unset, the base station derives the bare-board
+telemetry topic from `VENUS_MQTT_USERNAME` and also subscribes to the older
+full-username topic as a fallback. This means `robot_43_1` subscribes to both
+`/pynqbridge/43/send` and `/pynqbridge/robot_43_1/send`.
+
+## Local Setup
+
+Create `user-interface-module/.env` from `.env.example` and set the matching
+username/password locally:
 
 ```powershell
-$env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
+cd user-interface-module
+Copy-Item .env.example .env
+# Edit .env; do not commit it.
 ```
 
-The base station derives the topic from `VENUS_MQTT_USERNAME` when
-`VENUS_MQTT_TOPICS` is not set. The simplest setup is to leave the topic
-unset and let it derive:
+For robot B, the key fields should be:
+
+```text
+VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
+VENUS_MQTT_USERNAME=robot_43_1
+VENUS_MQTT_PASSWORD=<robot B password>
+```
+
+Leave `VENUS_MQTT_TOPICS` and `VENUS_MQTT_COMMAND_TOPIC` unset unless the team
+changes the bridge topics again.
+
+Run a broker/subscription check without requiring live robot traffic:
 
 ```powershell
 $env:PYTHONPATH="src"
-$env:VENUS_MQTT_HOST="mqtt.ics.ele.tue.nl"
-$env:VENUS_MQTT_USERNAME="robot_15_1"
-$env:VENUS_MQTT_PASSWORD="<password from the communication-module owner>"
-python -m venus_basestation --source mqtt --headless --save-state outputs\live_mqtt_state.json
+python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-min-messages 0
 ```
 
-This derives `/pynqbridge/robot_15_1/send`. For robot B, use
-`VENUS_MQTT_USERNAME="robot_43_1"` (deriving `/pynqbridge/robot_43_1/send`)
-with robot B's matching password. Override with `VENUS_MQTT_TOPICS` only if
-the bridge topic ever differs from this convention.
-
-For the Tkinter UI:
+Run the Tk dashboard:
 
 ```powershell
 $env:PYTHONPATH="src"
 python -m venus_basestation --source mqtt --ui tk
 ```
 
-For a demo-prep smoke check without opening the UI:
+If the program shows simulated example data, it did not see
+`VENUS_MQTT_USERNAME`; check that `.env` exists in `user-interface-module/` or
+that the variables are exported in the shell that launches the program.
 
-```powershell
-$env:PYTHONPATH="src"
-python -m venus_basestation --source mqtt --headless --mqtt-check --mqtt-timeout 15 --mqtt-min-messages 0 --save-state outputs\mqtt_check_state.json
-```
+## Robot Commands
 
-This prints sanitized MQTT settings and verifies the broker login plus
-subscription acknowledgement. Keep `--mqtt-min-messages 0` when the robot is not
-publishing yet. Remove it or set it to `1` when you want to require one
-parseable live robot message too.
-
-If broker login or subscription fails, the check reports that setup error. If
-live-message mode receives zero messages, the likely causes are: no robot
-currently publishing, a payload shape outside the documented compatibility
-aliases, or a robot-side publishing issue.
-
-The mapping/embedded UART test documents the robot-to-ESP32 frame as
-`4 bytes payload length + JSON payload bytes`. The base station still expects
-MQTT messages to be JSON, but it now also tolerates messages where that 4-byte
-UART length prefix is forwarded together with the JSON payload.
-
-## Robot Command Interface (received 2026-06-12)
-
-The embedded module confirmed the broker constraints (host
-`mqtt.ics.ele.tue.nl`, port `1883`, standard unencrypted TCP, board
-credentials as above) and defined the inbound control channel:
-
-- The robot **subscribes** to its command topic; the base station derives
-  `/pynqbridge/<username>/recv` from the username (so robot B is
-  `/pynqbridge/robot_43_1/recv`), mirroring the send-topic convention proven
-  in the team's own code.
-  > The 2026-06-12 spec text wrote this as `/pynqbridge/43/recv` (bare board
-  > number), which conflicts with the full-username form the team's running
-  > publisher uses on the send side. We default to the full-username form for
-  > consistency and keep it overridable via `VENUS_MQTT_COMMAND_TOPIC` /
-  > `--command-topic`. **Confirm the exact recv topic with the embedded
-  > teammate before the first live command to the real robot.**
-- The robot processes structural state changes cleanly **upon completing its
-  active execution iteration step** — commands are not applied mid-iteration,
-  so the UI reports "sent", and the actual state change is confirmed by
-  returning telemetry.
-
-Supported command payloads (sent verbatim by the base station, compact JSON):
+The robot processes structural commands at the end of its active execution
+iteration. The base station publishes compact JSON payloads with QoS 1:
 
 ```json
 {"command":"start","arguments":["--verbose"]}
 ```
 
-Start Navigation: exit the initial IDLE hold or resume from a paused state to
-execute spatial tracking.
-
 ```json
 {"command":"idle","arguments":[]}
 ```
-
-Pause Navigation: break execution safely, park motors, and enter a
-non-blocking IDLE loop waiting for a subsequent resume signal.
 
 ```json
 {"command":"stop","arguments":[]}
 ```
 
-Emergency Stop (Kill): immediately halt program loops, destroy peripheral
-configurations safely, and completely terminate the application framework on
-the embedded architecture.
+By default, `robot_43_1` commands go to `/pynqbridge/43/recv`. A broker PUBACK
+only means the broker accepted the publish; actual robot state must be confirmed
+from returning telemetry.
 
-The base station publishes commands with QoS 1 (at-least-once): an emergency
-stop must not be lost, and the iteration-boundary processing makes duplicate
-delivery harmless. Commands are available from the dashboard COMMAND UPLINK
-panel in live MQTT mode, or headless via
-`python -m venus_basestation --source mqtt --send-command {start,idle,stop}`.
+## Payload Compatibility
 
-## Current Payloads
+The UI accepts the current Team 28 payload aliases, including:
 
-Position update:
+- `position_update` -> `robot_position`
+- `block_found`, `rock_detected`, `rock_found` -> `rock`
+- `border_found`, `border_detected` -> `boundary`
+- `mountain_found` -> `mountain`
+- `cliff_found` -> `cliff`
 
-```json
-{
-  "robot_id": "A",
-  "type": "position_update",
-  "x": 3,
-  "y": 5,
-  "heading": 90
-}
-```
-
-Rock detection:
-
-```json
-{
-  "robot_id": "A",
-  "type": "rock_detected",
-  "x": 3,
-  "y": 5,
-  "distance_mm": 120,
-  "color": "red",
-  "size": "small",
-  "temperature": 28.5
-}
-```
-
-The user-interface module already accepts these shapes.
-
-The user-interface module now preserves the Team 28 coordinate metadata in structured state:
-
-- `heading` is stored on the latest robot track and shown/exported as degrees.
-- `distance_mm` is stored on detected objects and shown/exported as sensor-relative metadata.
-- Object markers are still plotted at the provided `x` and `y`, because the payload already includes object coordinates.
-
-## Coordinate Interpretation From Current Code
-
-Reading the Team 28 communication, mapping, and navigation branches gives this current best interpretation:
-
-- `x` and `y` are map coordinates supplied by the robot-side modules.
-- The navigation code moves and records distance in centimeters, so `x` and `y` are most likely centimeters from the startup origin.
-- The mapping/navigation code does not currently define a complete final heading convention, so the UI records `heading` as raw degrees and does not transform it.
-- `distance_mm` is a sensor/object-distance field, not a map-coordinate unit for `x` and `y`.
-
-This means the UI can proceed without another teammate answer for basic compatibility: it receives their values, stores them, displays them, and avoids making unsupported coordinate transformations.
-
-## Extra Runtime Tolerance
-
-The supplied design-report and brainstorming ZIP files do not define a different JSON payload or MQTT topic. They describe the same hybrid approach: periodic position updates plus immediate event messages for rocks, cliffs/borders, mountains, obstacles, and robot positions.
-
-The parser also accepts these likely small field-name variations so the demo is less brittle:
-
-- `message_type` or `event` instead of `type`;
-- `robot` or `id` instead of `robot_id`;
-- `rock_detection`, `cliff_detection`, `boundary_detection`, `mountain_detection`, and `obstacle_detection` aliases;
-- current live `*_found` aliases such as `block_found`, `border_found`,
-  `mountain_found`, and `cliff_found`;
-- design-report vocabulary such as `border_detected`, `edge_detected`, and `block_detected`;
-- `heading_deg` instead of `heading`;
-- `object_distance_mm` or `distance` instead of `distance_mm`.
-- an optional 4-byte UART length prefix before the JSON payload, when the
-  prefix length matches the JSON byte length.
-
-Unsupported or malformed MQTT messages are logged and skipped instead of stopping the UI.
+Plain JSON MQTT payloads are accepted. UART-framed payloads with a 4-byte
+length prefix are also accepted if the prefix length matches the JSON bytes.
 
 ## Still Needs Team Confirmation
 
-- whether the teammate-provided numeric board topics remain final for the demo;
-- whether `robot_id` will stay as `"A"` or become a real robot/module identifier;
-- whether the current centimeter/startup-origin interpretation of `x` and `y` is the final demo contract;
-- what `heading = 0` and `heading = 90` mean physically if the UI later needs an arrow or rotation;
-- whether detected objects will always include object `x` and `y`;
-- whether additional object types will be sent before the demo.
-
-## Observed Risks Outside The UI Module
-
-- The mapping/navigation code currently does not provide a complete final coordinate contract.
-- The embedded distance-sensor branch contains unresolved merge-conflict markers in one file.
-- Broker/network availability still requires a live run close to demo time.
+- whether robot A also accepts commands at `/pynqbridge/15/recv`;
+- whether `robot_id` stays as `"A"`/`"B"` or becomes the MQTT username;
+- final coordinate units, origin, and heading convention;
+- whether detected objects always include map `x` and `y`.

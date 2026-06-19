@@ -6,7 +6,7 @@ WHY THIS EXISTS
 Team 28's robot firmware (the `communication` app on the `main` branch) writes
 telemetry to **UART0** as `4-byte little-endian length + JSON payload`. Nothing
 in the team repo relays that UART stream onto MQTT, so the base-station
-dashboard — which subscribes to ``/pynqbridge/<username>/send`` — sees nothing
+dashboard — which subscribes to ``/pynqbridge/<board>/send`` — sees nothing
 unless the course's own pynqbridge/ESP32 relay is doing the UART<->MQTT hop.
 
 This script is that missing relay, as a standalone fallback: it reads the
@@ -30,8 +30,9 @@ USAGE (on the PYNQ, once paho-mqtt + pyserial are installed):
     VENUS_MQTT_USERNAME=robot_43_1 VENUS_MQTT_PASSWORD=... \
         python uart_mqtt_bridge.py --serial /dev/ttyUSB0 --baud 115200
 
-The topic defaults to /pynqbridge/<VENUS_MQTT_USERNAME>/send (matching the
-dashboard); override with --topic. CONFIRM the serial device with the board:
+The topic defaults to /pynqbridge/<board>/send, derived from
+VENUS_MQTT_USERNAME (matching the dashboard); override with --topic. CONFIRM
+the serial device with the board:
 it may be /dev/ttyUSB0, /dev/ttyPS1, /dev/ttyACM0, or COMx on Windows.
 """
 
@@ -40,12 +41,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
 # Firmware sends strlen(payload) (< 128 bytes in practice); cap well above that
 # so a desynced/garbage length prefix is rejected instead of stalling the read.
 MAX_PAYLOAD = 8192
+COURSE_USERNAME_RE = re.compile(r"^robot_(?P<board>\d+)_\d+$")
 
 
 def parse_frames(buffer: bytes, *, max_payload: int = MAX_PAYLOAD) -> tuple[list[bytes], bytes]:
@@ -85,11 +88,12 @@ def resolve_topic(args_topic: str | None, username: str) -> str:
     if args_topic:
         return args_topic
     username = username.strip()
-    if not username:
+    match = COURSE_USERNAME_RE.fullmatch(username)
+    if not match:
         raise SystemExit(
-            "no topic and no VENUS_MQTT_USERNAME set; pass --topic /pynqbridge/<username>/send"
+            "no topic and no valid VENUS_MQTT_USERNAME set; pass --topic /pynqbridge/<board>/send"
         )
-    return f"/pynqbridge/{username}/send"
+    return f"/pynqbridge/{match.group('board')}/send"
 
 
 def main() -> None:
@@ -102,7 +106,7 @@ def main() -> None:
     parser.add_argument("--username", default=os.getenv("VENUS_MQTT_USERNAME", ""))
     parser.add_argument("--password", default=os.getenv("VENUS_MQTT_PASSWORD", ""))
     parser.add_argument("--topic", default=os.getenv("VENUS_MQTT_TOPICS", "") or None,
-                        help="MQTT topic to publish to (default: /pynqbridge/<username>/send).")
+                        help="MQTT topic to publish to (default: /pynqbridge/<board>/send).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Read and print frames without connecting to MQTT (serial-only check).")
     args = parser.parse_args()

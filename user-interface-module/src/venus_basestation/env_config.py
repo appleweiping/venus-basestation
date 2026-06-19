@@ -78,4 +78,36 @@ def resolve_source(explicit_source: str | None, *, has_credentials: bool) -> tup
 
 def has_mqtt_credentials(environ: dict | None = None) -> bool:
     env = os.environ if environ is None else environ
-    return bool(env.get("VENUS_MQTT_USERNAME", "").strip())
+    return bool(env.get("VENUS_MQTT_USERNAME", "").strip() or env.get("VENUS_MQTT_ACCOUNTS", "").strip())
+
+
+def mqtt_accounts_from_env(environ: dict | None = None) -> list[dict[str, str]]:
+    """Return the list of robot accounts to connect to, as ``{username, password}``.
+
+    Each course robot account is locked by the broker ACL to its own board, so
+    showing two robots on one dashboard needs one connection per account. Set
+    ``VENUS_MQTT_ACCOUNTS`` to a comma-separated ``user:password`` list, e.g.
+    ``robot_15_1:pw15,robot_43_1:pw43`` (passwords must not contain ``:`` or
+    ``,``). Falls back to the single ``VENUS_MQTT_USERNAME`` /
+    ``VENUS_MQTT_PASSWORD`` pair, then to an empty list.
+    """
+    env = os.environ if environ is None else environ
+    raw = env.get("VENUS_MQTT_ACCOUNTS", "").strip()
+    if raw:
+        accounts: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for entry in raw.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            username, _, password = entry.partition(":")
+            username = username.strip()
+            if username and username not in seen:
+                seen.add(username)
+                accounts.append({"username": username, "password": password.strip()})
+        if accounts:
+            return accounts
+    username = env.get("VENUS_MQTT_USERNAME", "").strip()
+    if username:
+        return [{"username": username, "password": env.get("VENUS_MQTT_PASSWORD", "")}]
+    return []

@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 
 from .dashboard import MatplotlibDashboard
-from .env_config import has_mqtt_credentials, load_dotenv, resolve_source
+from .env_config import has_mqtt_credentials, load_dotenv, mqtt_accounts_from_env, resolve_source
 from .fake_messages import simulated_messages
 from .io_utils import iter_jsonl_messages, write_state_summary
 from .map_state import MapState
@@ -15,6 +15,9 @@ from .mqtt_client import (
     MqttCommandSender,
     MqttSubscriber,
     build_command,
+    course_board_id,
+    default_course_command_topic,
+    default_course_topics,
     describe_mqtt_config,
     mqtt_config_from_env,
 )
@@ -67,7 +70,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--command-topic",
-        help="Override the robot command topic (default: derived /pynqbridge/<username>/recv).",
+        help="Override the robot command topic (default: derived /pynqbridge/<board>/recv).",
     )
     parser.add_argument(
         "--mqtt-timeout",
@@ -237,40 +240,77 @@ def _run_mqtt_check(args, config: dict, state: MapState, dashboard) -> None:
 def _run_mqtt_tk(args, config: dict, state: MapState, dashboard: TkDashboard) -> None:
     """Live MQTT with the Tk dashboard.
 
-    The paho network loop runs on a daemon thread and only enqueues events;
-    the Tk thread drains the queue, so no widget is ever touched off-thread.
+    Supports one connection per robot account: the broker locks each course
+    credential to its own board, so showing several robots means connecting
+    once per account. Every subscriber's paho loop runs on its own daemon
+    thread and only enqueues events; the Tk thread drains the queue, so no
+    widget is ever touched off-thread. Telemetry from each board is labelled by
+    board number so two robots that both report id "A" stay distinct.
     """
-    subscriber = _build_subscriber(
-        config,
-        on_observation=lambda observation: dashboard.submit("obs", observation),
-        on_log=lambda message: (print(message), dashboard.submit("log", message)),
-        on_connect_change=lambda ok, broker: dashboard.submit("conn", (ok, broker)),
-    )
+    accounts = mqtt_accounts_from_env() or [
+        {"username": str(config["username"]), "password": str(config["password"])}
+    ]
+    multi = len(accounts) > 1
+    # Commands target one channel: the account matching VENUS_MQTT_USERNAME if
+    # present, otherwise the first listed.
+    primary_user = str(config["username"]).strip()
+    primary = next((a for a in accounts if a["username"] == primary_user), accounts[0])
 
-    def run_subscriber() -> None:
-        try:
-            subscriber.run_forever()
-        except OSError as exc:
-            message = (
-                f"MQTT could not connect to {config['host']}:{config['port']}: {exc}. "
-                "Check TU/e network/VPN, broker availability, host, port, username, and password."
-            )
-            print(message)
-            dashboard.submit("log", message)
-            dashboard.submit("conn", (False, ""))
+    subscribers: list[MqttSubscriber] = []
+    for account in accounts:
+        username = account["username"]
+        topics = default_course_topics(username) or list(config["topics"])
+        label = course_board_id(username) or username
+        subscriber = MqttSubscriber(
+            host=str(config["host"]),
+            port=int(config["port"]),
+            username=username,
+            password=str(account["password"]),
+            topics=topics,
+            label=label if multi else "",
+            on_observation=lambda observation: dashboard.submit("obs", observation),
+            on_log=lambda message, u=username: (print(f"[{u}] {message}"), dashboard.submit("log", f"[{u}] {message}")),
+            # Only the primary connection drives the single connection pill, so
+            # two subscribers do not fight over it.
+            on_connect_change=(
+                (lambda ok, broker: dashboard.submit("conn", (ok, broker)))
+                if account is primary
+                else None
+            ),
+        )
+        subscribers.append(subscriber)
+        print(f"robot {username} -> subscribing {topics}")
 
-    command_topic = (args.command_topic or str(config.get("command_topic") or "")).strip()
+    primary_subscriber = subscribers[accounts.index(primary)]
+
+    command_topic = (args.command_topic or default_course_command_topic(primary_user) or str(config.get("command_topic") or "")).strip()
     if command_topic:
         def send_command(command: str) -> str:
             payload = build_command(command)
-            if not subscriber.publish_command(command_topic, payload):
-                raise RuntimeError(subscriber.last_error or "uplink not connected to broker yet")
+            if not primary_subscriber.publish_command(command_topic, payload):
+                raise RuntimeError(primary_subscriber.last_error or "uplink not connected to broker yet")
             return command_topic
 
         dashboard.set_command_handler(send_command)
 
-    thread = threading.Thread(target=run_subscriber, name="mqtt-subscriber", daemon=True)
-    thread.start()
+    def run_subscriber(subscriber: MqttSubscriber) -> None:
+        try:
+            subscriber.run_forever()
+        except OSError as exc:
+            message = (
+                f"[{subscriber.username}] MQTT could not connect to {config['host']}:{config['port']}: {exc}. "
+                "Check TU/e network/VPN, broker availability, host, port, username, and password."
+            )
+            print(message)
+            dashboard.submit("log", message)
+            if subscriber is primary_subscriber:
+                dashboard.submit("conn", (False, ""))
+
+    for subscriber in subscribers:
+        threading.Thread(
+            target=run_subscriber, args=(subscriber,), name=f"mqtt-{subscriber.username}", daemon=True
+        ).start()
+
     dashboard.start_pump(state)
     dashboard.show()
     _finish(state, None, args.save_figure, args.save_state, show=False, theme=args.theme)
