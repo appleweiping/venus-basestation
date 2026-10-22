@@ -1,9 +1,7 @@
 # embedded-software-module Branch Snapshot
 
-This directory is a public-safe source snapshot copied from the Team 28 GitLab remote.
+This directory is a public-safe source snapshot copied from the Team 28 repository on TU/e GitLab.
 
-- Local source: D:\Undergraduate_project_netherlands\venus-team-28-embedeed-software-module
-- GitLab remote: git@gitlab.tue.nl:d.gyftakis/venus-team-28.git
 - Branch represented: embedeed-software-module
 - Source HEAD at copy time: bb6efb772eb7ad258d05170c58be5b20065667d7 (bb6efb7)
 - Refreshed: 2026-05-29

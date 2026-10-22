@@ -1,9 +1,7 @@
 # mapping-new Branch Snapshot
 
-This directory is a public-safe source snapshot copied from the Team 28 GitLab remote.
+This directory is a public-safe source snapshot copied from the Team 28 repository on TU/e GitLab.
 
-- Local source: D:\Undergraduate_project_netherlands\venus-team-28-mapping-new
-- GitLab remote: git@gitlab.tue.nl:d.gyftakis/venus-team-28.git
 - Branch represented: mapping-new
 - Source HEAD at copy time: bef05588cfd5efbabd049f2b5b6e1f586bfa974a (bef0558)
 - Refreshed: 2026-05-29

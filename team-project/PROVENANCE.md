@@ -1,9 +1,7 @@
-﻿# Team 28 GitLab Snapshot Provenance
+# Team 28 GitLab Snapshot Provenance
 
-This directory is a public-safe snapshot of the local Team 28 GitLab checkout copied from:
+This directory is a snapshot of the Team 28 repository on TU/e GitLab:
 
-- Local source: `D:/Undergraduate_project_netherlands/venus-team-28-gitlab`
-- GitLab remote: `git@gitlab.tue.nl:d.gyftakis/venus-team-28.git`
 - Source branch at copy time: `main`
 - Source HEAD at copy time: `70895dc4e5d13c4adbe06a3e31b0bd9fe82225fd`
 

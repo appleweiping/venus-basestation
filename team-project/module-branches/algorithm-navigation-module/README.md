@@ -15,14 +15,14 @@ Already a pro? Just edit this README.md and make it your own. Want to make it ea
 
 ```
 cd existing_repo
-git remote add origin https://gitlab.tue.nl/d.gyftakis/venus-team-28.git
+git remote add origin https://gitlab.tue.nl/<team-repository>.git
 git branch -M main
 git push -uf origin main
 ```
 
 ## Integrate with your tools
 
-* [Set up project integrations](https://gitlab.tue.nl/d.gyftakis/venus-team-28/-/settings/integrations)
+* [Set up project integrations](https://gitlab.tue.nl/<team-repository>/-/settings/integrations)
 
 ## Collaborate with your team
 
