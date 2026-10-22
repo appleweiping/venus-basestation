@@ -1,368 +1,114 @@
-<p align="center">
-  <strong>Venus Basestation</strong>
-</p>
+# Venus Basestation
 
-<p align="center">
-  Base-station software and visualization dashboard for a multi-robot planetary exploration system.
-  Receives robot telemetry over MQTT, maintains a live world model, and renders explored terrain in real time.
-</p>
+The base station I wrote for my TU/e team's Venus exploration robots: it reads the robots' telemetry
+over MQTT (or from a recorded JSONL file), keeps a map of where each robot drove and what it found,
+and shows it in a Tk mission-control dashboard that can also send start / idle / stop commands back
+to a robot.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square" alt="Python" />
-  <img src="https://img.shields.io/badge/platform-PYNQ%20%7C%20desktop-lightgrey?style=flat-square" alt="Platform" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/UI-mission%20control-38bdf8?style=flat-square" alt="Mission Control UI" />
-</p>
+![Tk dashboard replaying examples/demo_mission.jsonl](user-interface-module/docs/assets/dashboard-replay.png)
 
-<p align="center">
-  <img src="user-interface-module/docs/assets/mission-dashboard.svg" alt="Mission control snapshot of a three-robot exploration run" width="820" />
-</p>
+*The Tk dashboard replaying `examples/demo_mission.jsonl`, a generated three-robot mission (not
+real robot data). Captured from the running app on a virtual X display.*
 
----
+## What I built
 
-## Overview
+My part of the team project is `user-interface-module/` (about 2.5k lines of Python plus 100 tests):
 
-This repository contains two things:
+- **Message parsing** (`message_schema.py`): turns robot JSON into observations (position, rock,
+  cliff, boundary, mountain, obstacle, status, colour/distance sensor). It accepts the field names
+  the team's communication module actually sends (`type=position_update`, `rock_detected`,
+  `object_distance_mm`, ...) and payloads that still carry the 4-byte UART length prefix, and rejects
+  NaN/infinite coordinates.
+- **Map state** (`map_state.py`): tracks, latest status and detected objects per robot; exports JSON.
+- **Tk dashboard** (`tk_dashboard.py`): map with zoom/pan, robot cards, detection counts, mission
+  log, SVG export. In live mode the MQTT client runs on background threads and only queues events;
+  the Tk thread drains the queue, so widgets are never touched from another thread.
+- **MQTT client** (`mqtt_client.py`): one connection per robot account (the course broker ties each
+  login to one board), topic names derived from the username, readable errors for a wrong password
+  or an ACL rejection.
+- **Command uplink**: START / IDLE / E-STOP buttons publish `{"command": ..., "arguments": [...]}`
+  to `/pynqbridge/<board>/recv` with QoS 1.
+- **Tools**: JSONL replay and generators, and `tools/uart_mqtt_bridge.py`, a fallback that runs on
+  the PYNQ, reads the firmware's framed JSON from the serial port and republishes it to MQTT.
 
-- **`user-interface-module/`** — the computer software and UI module: Python base-station, MQTT subscriber, JSONL replay, map state engine, Tkinter desktop dashboard, SVG/PNG export, and automated tests.
-- **`team-project/`** — a snapshot of the shared team codebase (PYNQ embedded software, communication module, algorithm/navigation module, mapping module) mirrored from the team GitLab for portfolio context.
+## Try it without a robot
 
-The team GitLab remains the authoritative source for coursework collaboration. This repository is a public portfolio mirror.
-
----
-
-## Architecture
-
-```
-robot hardware (PYNQ)
-  └─ embedded software module
-       └─ communication module  ──MQTT──▶  venus_basestation
-                                              ├─ message_schema   (parse + validate)
-                                              ├─ map_state        (world model)
-                                              ├─ theme            (shared design tokens)
-                                              ├─ tk_dashboard     (mission-control Tkinter UI)
-                                              ├─ dashboard        (matplotlib export)
-                                              └─ svg_snapshot     (stdlib SVG export)
-```
-
-In live MQTT mode the paho network loop runs on a daemon thread and only
-*enqueues* events; the Tk thread drains the queue at ~30 fps, so no widget is
-ever touched from a background thread.
-
-### Mission Control dashboard
-
-The default `--ui tk` dashboard is a dark mission-control console (stdlib
-Tkinter, zero extra dependencies):
-
-- **Live terrain map** — world-coordinate grid with adaptive 1/2/5 step,
-  fading glow trails per robot, heading arrows, detection markers with halos.
-- **Zoom / pan / fit** — mouse wheel zooms around the cursor, drag pans,
-  double-click (or `F`) refits to the data.
-- **Robot status cards** — mode, battery bar with level colors, position,
-  heading, and latest color/distance sensor readings per robot.
-- **Detection chips & color-coded mission log** — running tallies and the
-  latest events, tinted by event type.
-- **KPI header** — connection pill, mission clock, message count, link rate.
-- **Toolbar** — pause/resume (`Space`), fit view (`F`), export SVG snapshot
-  (`S`) straight from the live view.
-- **Themes** — `--theme dark` (default) or `--theme light`, shared with the
-  SVG exporter.
-
-### Robot command uplink
-
-Per the Team 28 embedded spec, the robot subscribes to
-`/pynqbridge/<board>/recv` and applies commands **at the end of its active
-execution iteration step**. The base station publishes these QoS 1 payloads:
-
-| Command | Payload | Effect |
-|---------|---------|--------|
-| Start | `{"command":"start","arguments":["--verbose"]}` | Exit the initial IDLE hold / resume navigation |
-| Idle | `{"command":"idle","arguments":[]}` | Break the loop safely, park motors, wait for resume |
-| E-Stop | `{"command":"stop","arguments":[]}` | Halt loops, tear down peripherals, terminate the embedded app |
-
-In live MQTT mode the dashboard shows a **COMMAND UPLINK** panel
-(START / IDLE / E-STOP). Button feedback confirms the *send* only; actual
-robot state is confirmed by returning telemetry. The command topic is derived
-from the username (`robot_43_1` -> `/pynqbridge/43/recv`) and can be
-overridden with `VENUS_MQTT_COMMAND_TOPIC` or `--command-topic`.
-
-Headless one-shot command (demo prep / scripting):
-
-```bash
-PYTHONPATH=src python -m venus_basestation --source mqtt --send-command start
-PYTHONPATH=src python -m venus_basestation --source mqtt --send-command stop --command-topic /pynqbridge/43/recv
-```
-
-**Input sources** (selectable at runtime):
-
-| Source | Flag | Description |
-|--------|------|-------------|
-| Simulated | `--source simulated` | Built-in fake message generator |
-| JSONL replay | `--source jsonl` | Replay a recorded `.jsonl` file |
-| Live MQTT | `--source mqtt` | Subscribe to broker topics |
-
----
-
-## Connect to the robot (live) — start here
-
-If the dashboard only shows **simulated example data**, it just means no
-credentials are configured yet. To connect to the real robot:
-
-1. `cd user-interface-module`
-2. Copy `.env.example` to `.env` and set your board credentials:
-   ```
-   VENUS_MQTT_USERNAME=robot_43_1
-   VENUS_MQTT_PASSWORD=<your board password>
-   ```
-   (Leave the topic unset; it is derived as `/pynqbridge/43/send`, with a
-   full-username fallback subscription for older scripts.)
-3. Launch:
-   ```powershell
-   .\run-dashboard.ps1
-   ```
-   or directly: `PYTHONPATH=src python -m venus_basestation` — with credentials
-   set it **auto-connects** (no `--source` needed). With no credentials it
-   prints how to connect and falls back to simulated data.
-
-**Two robots at once:** the broker locks each credential to its own board, so
-showing both team robots means one connection per account. In `.env`, set
-`VENUS_MQTT_ACCOUNTS` to a comma-separated `user:password` list:
-
-```
-VENUS_MQTT_ACCOUNTS=robot_43_1:<pw43>,robot_15_1:<pw15>
-```
-
-The dashboard then connects to both boards and labels each robot by board
-(`43:A`, `15:A`) so they stay distinct on the map. Command buttons target the
-account that matches `VENUS_MQTT_USERNAME`.
-
-Verify the broker login without opening a window:
-
-```powershell
-PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0
-```
-
-> If it connects but the map stays empty (`processed 0 messages`), the broker
-> link is fine but **nothing is publishing** to your topic yet. The robot
-> firmware only writes telemetry over UART, so something must relay UART→MQTT.
-> Either the course pynqbridge/ESP32 relay does this (then just run the
-> firmware), or run the bundled fallback bridge **on the PYNQ**:
-> `tools/uart_mqtt_bridge.py` (reads the firmware's framed JSON from a serial
-> port and republishes to `/pynqbridge/<board>/send`; confirm the serial
-> device first). See `user-interface-module/docs/verification-and-responsibility-boundary.md`.
-
-## Quick Start
+Python 3.10+; Tk is part of the standard Windows/macOS installers (`python3-tk` on Debian/Ubuntu).
 
 ```bash
 cd user-interface-module
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-# Connect to the robot (credentials in .env) — auto-selects MQTT:
-PYTHONPATH=src python -m venus_basestation
-# Or explicitly choose a source:
+
+# open the dashboard on the recorded demo mission (the screenshot above)
+PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl
+
+# or on a simulated live stream
 PYTHONPATH=src python -m venus_basestation --source simulated
 ```
 
-Replay the bundled three-robot demo mission (the scene shown above):
+Without a window (on Windows set `$env:PYTHONPATH="src"` first):
+
+```text
+$ PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl \
+    --headless --save-state outputs/state.json --save-figure outputs/mission.svg
+processed 108 messages
+wrote state summary to outputs/state.json
+wrote svg snapshot to outputs/mission.svg
+```
+
+PNG export (`--save-figure x.png`) needs `pip install -r requirements-dashboard.txt` (matplotlib).
+
+## Connect to the robots
+
+1. Copy `user-interface-module/.env.example` to `.env` and fill in `VENUS_MQTT_USERNAME`
+   (for example `robot_43_1`) and `VENUS_MQTT_PASSWORD`. The `.env` file is git-ignored.
+2. Run `PYTHONPATH=src python -m venus_basestation` (or `.\run-dashboard.ps1` on Windows). With
+   credentials set it connects to `mqtt.ics.ele.tue.nl` and subscribes to `/pynqbridge/43/send`
+   (plus the older `/pynqbridge/robot_43_1/send` form). Without credentials it says so and falls
+   back to simulated data.
+3. For two robots at once set `VENUS_MQTT_ACCOUNTS=robot_43_1:<pw>,robot_15_1:<pw>`; robots are
+   then labelled by board (`43:A`, `15:A`).
+
+Useful checks:
 
 ```bash
-PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl
+PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0   # login + subscribe only
+PYTHONPATH=src python -m venus_basestation --source mqtt --send-command idle     # one command, then exit
 ```
 
-Headless smoke run (no window):
+`python -m venus_basestation --help` lists all options. The accepted message fields are in
+[`docs/message-format.md`](user-interface-module/docs/message-format.md) and the team's topic
+conventions in [`docs/team28-current-interface.md`](user-interface-module/docs/team28-current-interface.md).
 
-```bash
-PYTHONPATH=src python -m venus_basestation --source simulated --headless --steps 20
-```
-
-Replay a recorded session:
-
-```bash
-PYTHONPATH=src python -m venus_basestation \
-  --source jsonl \
-  --jsonl-path examples/sample_messages.jsonl \
-  --headless \
-  --save-state outputs/state.json
-```
-
-Connect to a live MQTT broker (explicit form; the `.env` flow above is simpler):
-
-```bash
-export VENUS_MQTT_HOST=mqtt.ics.ele.tue.nl
-export VENUS_MQTT_USERNAME=robot_15_1
-export VENUS_MQTT_PASSWORD=<password>
-# topic is derived from the username; no need to set VENUS_MQTT_TOPICS
-PYTHONPATH=src python -m venus_basestation --source mqtt --ui tk
-```
-
-The current Team 28 bridge addresses each board by its **bare board number**:
-`robot_15_1` publishes on `/pynqbridge/15/send`, and `robot_43_1` publishes on
-`/pynqbridge/43/send`. If `VENUS_MQTT_TOPICS` is not set, the base station
-derives these topics from `VENUS_MQTT_USERNAME` and also subscribes to the
-older full-username form as a fallback, so the simplest correct setup is to
-leave the topic unset.
-
-Verify broker connectivity without opening the UI:
-
-```bash
-PYTHONPATH=src python -m venus_basestation \
-  --source mqtt --headless --mqtt-check --mqtt-timeout 15 --mqtt-min-messages 0 \
-  --save-state outputs/mqtt_check.json
-```
-
-Use `--mqtt-min-messages 0` to verify broker login and topic subscription even
-when the robot is not publishing. Use the default minimum of `1` when you want
-to verify live robot payloads too.
-
-Export a PNG dashboard snapshot:
-
-```bash
-pip install -r requirements-dashboard.txt
-MPLBACKEND=Agg PYTHONPATH=src python -m venus_basestation \
-  --source jsonl \
-  --jsonl-path examples/sample_messages.jsonl \
-  --headless \
-  --save-figure outputs/dashboard.png
-```
-
-Export an SVG snapshot (no extra dependencies):
-
-```bash
-PYTHONPATH=src python -m venus_basestation \
-  --source jsonl \
-  --jsonl-path examples/sample_messages.jsonl \
-  --headless \
-  --save-figure outputs/dashboard.svg
-```
-
----
-
-## CLI Reference
-
-```
-python -m venus_basestation [options]
-
---source {simulated,mqtt,jsonl}   Input source (default: simulated)
---headless                        Run without opening a window
---ui {tk,matplotlib}              Dashboard backend (default: tk)
---theme {dark,light}              Dashboard + SVG theme (default: dark)
---steps N                         Simulated steps to run (default: 40)
---delay SECS                      Delay between simulated steps (default: 0.05)
---jsonl-path PATH                 JSONL file for --source jsonl
---save-figure PATH                Write final figure to PNG or SVG
---save-state PATH                 Write final map state to JSON
---mqtt-check                      Verify broker config and exit
---mqtt-timeout SECS               Timeout for --mqtt-check / --send-command (default: 10)
---mqtt-min-messages N             Minimum messages for --mqtt-check (default: 1)
---send-command {start,idle,stop}  Publish one robot command and exit
---command-topic TOPIC             Override the robot command topic
-```
-
----
-
-## Message Format
-
-The base-station accepts JSON messages with the following canonical fields:
-
-```json
-{
-  "robot_id": "robot_43_1",
-  "event_type": "rock",
-  "x": 1.23,
-  "y": 4.56,
-  "color": "red",
-  "size": "large",
-  "distance_mm": 320.0,
-  "confidence": 0.91
-}
-```
-
-**Supported event types:** `robot_position`, `rock`, `cliff`, `boundary`, `mountain`, `obstacle`, `status`, `color_sensor`, `distance_sensor`
-
-The parser normalizes common field name variants from the communication module (e.g. `type=position_update` → `event_type=robot_position`, `object_distance_mm` → `distance_mm`). See [`docs/message-format.md`](user-interface-module/docs/message-format.md) for the full contract.
-
-The current Team 28 UART test sends robot-to-ESP32 messages as `4-byte payload length + JSON payload bytes`. MQTT normally forwards only the JSON body, but the parser also accepts MQTT payloads where that 4-byte UART length prefix is still present.
-
----
-
-## MQTT Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `VENUS_MQTT_HOST` | Broker hostname |
-| `VENUS_MQTT_PORT` | Broker port (default: 1883) |
-| `VENUS_MQTT_USERNAME` | Username |
-| `VENUS_MQTT_PASSWORD` | Password — never commit this |
-| `VENUS_MQTT_TOPICS` | Comma-separated telemetry topic list |
-| `VENUS_MQTT_COMMAND_TOPIC` | Robot command topic (default: derived `/pynqbridge/<board>/recv`) |
-
----
-
-## Project Layout
-
-```
-user-interface-module/
-  src/venus_basestation/
-    __main__.py          CLI entry point and run loop
-    message_schema.py    Message parsing, validation, field normalization
-    map_state.py         In-memory world model (robots, objects, events)
-    theme.py             Shared design tokens (dark/light, blend math)
-    tk_dashboard.py      Mission-control Tkinter UI (thread-safe queue pump)
-    dashboard.py         Matplotlib visualization and PNG export
-    svg_snapshot.py      Themed SVG export (stdlib only, no matplotlib)
-    mqtt_client.py       MQTT subscriber wrapper
-    fake_messages.py     Simulated robot observations
-    io_utils.py          JSONL reader and state writer
-  docs/
-    assets/mission-dashboard.svg
-    message-format.md
-    team28-current-interface.md
-    verification-and-responsibility-boundary.md
-  examples/
-    demo_mission.jsonl   Deterministic three-robot demo scene
-  tests/
-  tools/
-    generate_demo_mission.py
-    tk_smoke.py          Local windowed smoke test (+ optional screenshot)
-
-team-project/
-  libpynq-5EID0-2023-v0.3.0/    Shared PYNQ course library
-  module-branches/               Snapshots of all team modules
-  README.md                      Original team development guide
-  PROVENANCE.md
-```
-
----
-
-## Running Tests
+## Tests
 
 ```bash
 cd user-interface-module
 pip install -r requirements-dev.txt
-python -m pytest -v
+python -m pytest -q        # 100 passed on Windows, Python 3.12
 ```
 
----
+GitHub Actions runs the tests on Python 3.10 and 3.12 and replays the demo mission headless.
 
-## Development
+## Limits
 
-Generate a fake JSONL stream for offline testing:
+- I tested the live path against the course broker with my own test publishes in the team's
+  message format. I have not seen a full run with real robot telemetry: the robot firmware writes
+  its JSON over UART, and something (the course's ESP32 relay or `tools/uart_mqtt_bridge.py`) has
+  to forward it to MQTT.
+- Coordinates are drawn as received; units, origin and heading convention are whatever the robots
+  send.
+- A command button only confirms that the broker accepted the publish, not that the robot acted on it.
 
-```bash
-PYTHONPATH=src python tools/generate_fake_jsonl.py outputs/fake.jsonl --count 60
-```
+## What else is in this repository
 
----
-
-## Safety
-
-- Do not commit MQTT credentials, `sftp.json`, `.venv/`, or generated output files.
-- Use environment variables for all runtime secrets.
-- The `--mqtt-check` flag prints sanitized config and never prints the password value.
-
----
+`team-project/` is a copy of the team's GitLab repository, kept so the UI module can be read in
+context: the PYNQ course library `libpynq-5EID0-2023-v0.3.0/` (course material with its own
+license) and snapshots of my teammates' module branches (embedded software, communication,
+navigation, mapping). I did not write that code. See [`team-project/PROVENANCE.md`](team-project/PROVENANCE.md).
 
 ## License
 
-Original code in `user-interface-module/` is MIT licensed. The `team-project/` snapshot retains the original team licensing. See [`LICENSE`](LICENSE) and [`team-project/PROVENANCE.md`](team-project/PROVENANCE.md).
+MIT for `user-interface-module/` only; see [LICENSE](LICENSE) for the scope.
