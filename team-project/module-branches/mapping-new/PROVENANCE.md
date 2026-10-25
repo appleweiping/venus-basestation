@@ -1,12 +1,12 @@
 # mapping-new Branch Snapshot
 
-This directory is a public-safe source snapshot copied from the Team 28 repository on TU/e GitLab.
+This directory is a copy of one branch of the Team 28 repository on TU/e GitLab. I did not write this code.
 
 - Branch represented: mapping-new
 - Source HEAD at copy time: bef05588cfd5efbabd049f2b5b6e1f586bfa974a (bef0558)
 - Refreshed: 2026-05-29
 
-Copy policy:
+What the copy leaves out or keeps:
 
 - .git/ metadata was not copied.
 - Personal sftp.json files are excluded; examples may remain.

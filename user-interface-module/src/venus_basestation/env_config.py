@@ -1,16 +1,12 @@
-"""Zero-dependency .env loading and data-source resolution.
+""".env loading and data-source selection (stdlib only).
 
-The teammate's pain point: running the program with no arguments shows
-simulated example data, and connecting to the robot means knowing to pass
-``--source mqtt`` *and* exporting credentials. To remove that friction:
+A teammate who ran the program with no arguments only saw simulated data;
+reaching the robot also needed ``--source mqtt`` and exported credentials. So:
 
 - ``load_dotenv()`` reads a local ``.env`` (copied from ``.env.example``) so
   credentials live in one file instead of shell exports.
 - ``resolve_source()`` picks MQTT automatically when credentials are present,
-  and otherwise falls back to simulated data with a clear hint about how to
-  connect.
-
-Both are pure stdlib and fully testable.
+  and otherwise falls back to simulated data with a hint about how to connect.
 """
 
 from __future__ import annotations

@@ -254,7 +254,7 @@ def test_cli_send_command_publishes_to_derived_topic(monkeypatch, capsys) -> Non
     assert topic == "/pynqbridge/15/recv"
     assert json.loads(payload) == {"command": "start", "arguments": ["--verbose"]}
     output = capsys.readouterr().out
-    # Honest wording: broker accepted the publish, robot receipt unconfirmed.
+    # The message must not claim the robot got the command, only the broker.
     assert "queued at broker for /pynqbridge/15/recv" in output
     assert "password=" in output  # sanitized config echo, never the value
 

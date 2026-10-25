@@ -1,12 +1,12 @@
 # embedded-software-module Branch Snapshot
 
-This directory is a public-safe source snapshot copied from the Team 28 repository on TU/e GitLab.
+This directory is a copy of one branch of the Team 28 repository on TU/e GitLab. I did not write this code.
 
 - Branch represented: embedeed-software-module
 - Source HEAD at copy time: bb6efb772eb7ad258d05170c58be5b20065667d7 (bb6efb7)
 - Refreshed: 2026-05-29
 
-Copy policy:
+What the copy leaves out or keeps:
 
 - .git/ metadata was not copied.
 - Personal sftp.json files are excluded; examples may remain.

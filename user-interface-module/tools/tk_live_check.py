@@ -1,16 +1,18 @@
-"""Live-broker Tk dashboard check: the teammate's exact scenario.
+"""Check the Tk dashboard against the live course broker.
 
-Wires a real MqttSubscriber into the mission-control dashboard (the same way
-`python -m venus_basestation --source mqtt --ui tk` does), publishes Team 28's
-exact telemetry format to the live topic from a background client, captures a
-screenshot of the rendered map, then closes. Proves the full live path:
-real broker -> derived topic -> parse -> queue -> dashboard render.
+Connects an MqttSubscriber to the dashboard the same way
+`python -m venus_basestation --source mqtt --ui tk` does, publishes a few
+messages in Team 28's telemetry format to the board's topic from a second
+client, takes a screenshot of the map, then closes. If the robots show up, the
+whole live path works: broker -> derived topic -> parse -> queue -> render.
 
-Run on a Python with tkinter + Pillow (system Python), reading VENUS_MQTT_*
-from the environment:
+Needs tkinter and Pillow, and MQTT credentials in .env (see .env.example) or
+in the environment:
 
-    . .\\config.local.robot43.ps1
-    PYTHONPATH=src <python-with-tk-and-pillow> tools/tk_live_check.py --screenshot outputs/tk_live.png
+    PYTHONPATH=src python tools/tk_live_check.py --screenshot outputs/tk_live.png
+
+With --inject it skips the broker and feeds the same messages straight into
+the dashboard queue.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ import json
 import threading
 import time
 
+from venus_basestation.env_config import load_dotenv
 from venus_basestation.map_state import MapState
 from venus_basestation.mqtt_client import MqttSubscriber, mqtt_config_from_env
 from venus_basestation.tk_dashboard import TkDashboard
@@ -94,10 +97,11 @@ def main() -> None:
     parser.add_argument(
         "--inject",
         action="store_true",
-        help="Feed Team 28's exact message format straight into the dashboard "
-        "queue (no broker) — deterministic render proof.",
+        help="Feed Team 28's message format straight into the dashboard queue "
+        "(no broker), to check rendering on its own.",
     )
     args = parser.parse_args()
+    load_dotenv()
 
     if args.inject:
         _run_inject(args)

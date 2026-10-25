@@ -1,12 +1,12 @@
 # communication-module Branch Snapshot
 
-This directory is a public-safe source snapshot copied from the Team 28 repository on TU/e GitLab.
+This directory is a copy of one branch of the Team 28 repository on TU/e GitLab. I did not write this code.
 
 - Branch represented: communication-module
 - Source HEAD at copy time: 8e2abdab6530f6763899157ba25b84532e5836d2 (8e2abda)
 - Refreshed: 2026-05-22
 
-Copy policy:
+What the copy leaves out or keeps:
 
 - .git/ metadata was not copied.
 - Personal sftp.json files are excluded; examples may remain.

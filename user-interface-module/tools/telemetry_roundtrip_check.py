@@ -1,20 +1,20 @@
-"""End-to-end telemetry check: publish Team 28's exact wire format, receive it.
+"""End-to-end telemetry check: publish Team 28's wire format and receive it.
 
-This proves the topic fix on the real course broker. It runs our
-``MqttSubscriber`` on the username-derived topic and, from a separate client,
-publishes the same messages Team 28's ``hybrid_publisher_course.py`` sends
-(``{"robot_id":"A","type":"position_update",...}`` and ``rock_detected``).
-It then asserts the messages arrived, parsed, and updated the map state —
-the chain that "interface doesn't work" was breaking.
+Runs ``MqttSubscriber`` on the username-derived topic and, from a separate
+client, publishes the same messages Team 28's ``hybrid_publisher_course.py``
+sends (``{"robot_id":"A","type":"position_update",...}`` and
+``rock_detected``). It then checks that the messages arrived, parsed, and
+updated the map state. I wrote it to confirm the topic-name fix on the real
+course broker.
 
 Publishing to the ``/send`` (telemetry) topic mimics the team's own test
 publisher and never commands the robot (that is the ``/recv`` topic).
 
 Usage:
-    # course broker (reads VENUS_MQTT_* from the environment / config.local.*):
+    # course broker (credentials from .env or the environment):
     PYTHONPATH=src python tools/telemetry_roundtrip_check.py
-    # public test broker (no credentials needed):
-    PYTHONPATH=src python tools/telemetry_roundtrip_check.py --profile test
+    # public HiveMQ test broker (no credentials needed):
+    VENUS_MQTT_PROFILE=test PYTHONPATH=src python tools/telemetry_roundtrip_check.py
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ import json
 import threading
 import time
 
+from venus_basestation.env_config import load_dotenv
 from venus_basestation.map_state import MapState
 from venus_basestation.mqtt_client import MqttSubscriber, mqtt_config_from_env
 
@@ -32,6 +33,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--timeout", type=float, default=12.0)
     args = parser.parse_args()
+    load_dotenv()
 
     config = mqtt_config_from_env()
     host = str(config["host"])
