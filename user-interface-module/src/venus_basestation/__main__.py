@@ -125,15 +125,20 @@ def main() -> None:
         theme=args.theme,
     )
 
-    def handle(payload: str | bytes) -> None:
+    def handle(payload: str | bytes) -> bool:
+        """Apply one message; return False once the dashboard window was closed."""
         observation = parse_observation(payload)
         state.apply(observation)
         if dashboard:
             dashboard.draw(state)
+            if getattr(dashboard, "closed", False):
+                return False
+        return True
 
     if args.source == "simulated":
         for payload in simulated_messages(args.steps, args.delay):
-            handle(payload)
+            if not handle(payload):
+                break
         _finish(state, dashboard, args.save_figure, args.save_state, show=not args.headless, theme=args.theme)
         return
 
@@ -141,7 +146,8 @@ def main() -> None:
         if not args.jsonl_path:
             raise SystemExit("--jsonl-path is required for --source jsonl")
         for payload in iter_jsonl_messages(Path(args.jsonl_path)):
-            handle(payload)
+            if not handle(payload):
+                break
         _finish(state, dashboard, args.save_figure, args.save_state, show=not args.headless, theme=args.theme)
         return
 

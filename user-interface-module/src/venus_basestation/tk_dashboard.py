@@ -223,6 +223,8 @@ class TkDashboard:
         self._proj: Projection | None = None
         self._connected = False
         self._command_handler = None
+        self.closed = False
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         base_family = "Bahnschrift" if "Bahnschrift" in tkfont.families() else "Segoe UI"
         self._font_title = (base_family, 17, "bold")
@@ -520,18 +522,34 @@ class TkDashboard:
     # --------------------------------------------------------------- public API
     def draw(self, state: MapState) -> None:
         """Synchronous update (simulated/JSONL replay paths, Tk thread only)."""
+        if self.closed:
+            return
         self._state = state
         self._account_messages(state)
         self._mark_dirty()
         now = time.monotonic()
         if now - self._last_render >= RENDER_INTERVAL:
-            self._render()
-            self.root.update_idletasks()
-            self.root.update()
+            try:
+                self._render()
+                self.root.update_idletasks()
+                self.root.update()
+            except self.tk.TclError:
+                # The window was destroyed while update() was processing events.
+                self.closed = True
 
     def show(self) -> None:
+        if self.closed:
+            return
         self._render()
         self.root.mainloop()
+        self.closed = True
+
+    def close(self) -> None:
+        """Window close button: stop drawing and tear the window down."""
+        if self.closed:
+            return
+        self.closed = True
+        self.root.destroy()
 
     def submit(self, kind: str, payload: object = None) -> None:
         """Thread-safe event intake: ('obs', Observation) / ('conn', (ok, broker)) / ('log', str)."""
