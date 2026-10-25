@@ -61,7 +61,7 @@ def main() -> None:
     parser.add_argument(
         "--mqtt-check",
         action="store_true",
-        help="Print sanitized MQTT config, connect briefly, then exit.",
+        help="Print sanitized MQTT config, connect briefly, then exit (implies --source mqtt).",
     )
     parser.add_argument(
         "--send-command",
@@ -86,6 +86,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.mqtt_check:
+        # A broker check makes no sense against simulated or recorded data, and
+        # silently falling back to the simulator would hide missing credentials.
+        if args.source not in (None, "mqtt"):
+            raise SystemExit("--mqtt-check only works with --source mqtt")
+        if args.source is None and not has_mqtt_credentials():
+            raise SystemExit(
+                "--mqtt-check: no MQTT credentials. Set VENUS_MQTT_USERNAME and VENUS_MQTT_PASSWORD "
+                "(copy .env.example to .env) and re-run."
+            )
+        args.source = "mqtt"
+
     # Resolve the source: explicit --source wins; otherwise pick mqtt when
     # credentials are configured, else simulated. Print which and why.
     args.source, source_hint = resolve_source(args.source, has_credentials=has_mqtt_credentials())
@@ -103,10 +115,9 @@ def main() -> None:
     state = MapState()
     figure_path = Path(args.save_figure) if args.save_figure else None
     wants_svg_only = figure_path is not None and figure_path.suffix.lower() == ".svg"
-    needs_dashboard = (
-        not args.send_command
-        and ((not args.headless and args.ui in {"tk", "matplotlib"}) or (figure_path is not None and not wants_svg_only))
-    )
+    # --mqtt-check is a quick terminal check, so it never opens a window.
+    wants_window = not args.headless and not args.mqtt_check and args.ui in {"tk", "matplotlib"}
+    needs_dashboard = not args.send_command and (wants_window or (figure_path is not None and not wants_svg_only))
     dashboard = _build_dashboard(
         args.ui,
         needs_dashboard,

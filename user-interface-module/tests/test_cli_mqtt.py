@@ -115,3 +115,44 @@ def test_mqtt_check_allows_connection_only_check(monkeypatch) -> None:
     monkeypatch.setattr("venus_basestation.mqtt_client.MqttSubscriber.run_until", connect_only)
 
     main()
+
+
+def test_mqtt_check_without_credentials_exits_instead_of_simulating(monkeypatch) -> None:
+    # The README's connection check has no --source; with no credentials it
+    # used to fall back to simulated data and open the dashboard.
+    monkeypatch.delenv("VENUS_MQTT_USERNAME", raising=False)
+    monkeypatch.delenv("VENUS_MQTT_ACCOUNTS", raising=False)
+    monkeypatch.setattr("sys.argv", ["venus_basestation", "--mqtt-check", "--mqtt-min-messages", "0"])
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert "no MQTT credentials" in str(exc.value)
+
+
+def test_mqtt_check_implies_mqtt_source_and_opens_no_window(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["venus_basestation", "--mqtt-check", "--mqtt-min-messages", "0"])
+    checked: list[list[str]] = []
+
+    def connect_only(self, timeout_seconds: float, *, min_messages: int = 1) -> int:
+        checked.append(list(self.topics))
+        return 0
+
+    def no_window(*args, **kwargs):
+        raise AssertionError("--mqtt-check must not open a dashboard window")
+
+    monkeypatch.setattr("venus_basestation.mqtt_client.MqttSubscriber.run_until", connect_only)
+    monkeypatch.setattr("venus_basestation.__main__.TkDashboard", no_window)
+
+    main()
+
+    assert checked and "/pynqbridge/43/send" in checked[0]
+
+
+def test_mqtt_check_rejects_non_mqtt_source(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["venus_basestation", "--source", "simulated", "--mqtt-check"])
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert "--mqtt-check only works with --source mqtt" in str(exc.value)
