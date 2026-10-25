@@ -15,20 +15,23 @@ jobs:
       run:
         working-directory: user-interface-module
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install
-        run: pip install -r requirements-dev.txt
+        run: pip install -e ".[dev,dashboard]"
 
+      # Xvfb gives Tk a display, so the dashboard window tests run instead of skipping.
       - name: pytest
-        run: python -m pytest -q
+        run: xvfb-run -a python -m pytest -q -rs
 
       - name: Replay the demo mission headless
         run: |
-          PYTHONPATH=src python -m venus_basestation --source jsonl \
+          python -m venus_basestation --source jsonl \
             --jsonl-path examples/demo_mission.jsonl --headless \
             --save-state outputs/state.json --save-figure outputs/mission.svg
+          python -m venus_basestation --source jsonl \
+            --jsonl-path examples/demo_mission.jsonl --headless --save-figure outputs/mission.png
