@@ -12,7 +12,7 @@ real robot data). Captured from the running app on a virtual X display.*
 
 ## What I built
 
-My part of the team project is `user-interface-module/` (about 2.5k lines of Python plus 100 tests):
+My part of the team project is `user-interface-module/` (about 2.5k lines of Python plus 109 tests):
 
 - **Message parsing** (`message_schema.py`): turns robot JSON into observations (position, rock,
   cliff, boundary, mountain, obstacle, status, colour/distance sensor). It accepts the field names
@@ -39,32 +39,31 @@ Python 3.10+; Tk is part of the standard Windows/macOS installers (`python3-tk` 
 cd user-interface-module
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -e .
 
 # open the dashboard on the recorded demo mission (the screenshot above)
-PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl
+python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl
 
 # or on a simulated live stream
-PYTHONPATH=src python -m venus_basestation --source simulated
+python -m venus_basestation --source simulated
 ```
 
-Without a window (on Windows set `$env:PYTHONPATH="src"` first):
+Without a window:
 
 ```text
-$ PYTHONPATH=src python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl \
-    --headless --save-state outputs/state.json --save-figure outputs/mission.svg
+$ python -m venus_basestation --source jsonl --jsonl-path examples/demo_mission.jsonl --headless --save-state outputs/state.json --save-figure outputs/mission.svg
 processed 108 messages
 wrote state summary to outputs/state.json
 wrote svg snapshot to outputs/mission.svg
 ```
 
-PNG export (`--save-figure x.png`) needs `pip install -r requirements-dashboard.txt` (matplotlib).
+PNG export (`--save-figure x.png`) needs matplotlib: `pip install -e ".[dashboard]"`.
 
 ## Connect to the robots
 
 1. Copy `user-interface-module/.env.example` to `.env` and fill in `VENUS_MQTT_USERNAME`
    (for example `robot_43_1`) and `VENUS_MQTT_PASSWORD`. The `.env` file is git-ignored.
-2. Run `PYTHONPATH=src python -m venus_basestation` (or `.\run-dashboard.ps1` on Windows). With
+2. Run `python -m venus_basestation` (or `.\run-dashboard.ps1` on Windows). With
    credentials set it connects to `mqtt.ics.ele.tue.nl` and subscribes to `/pynqbridge/43/send`
    (plus the older `/pynqbridge/robot_43_1/send` form). Without credentials it says so and falls
    back to simulated data.
@@ -74,8 +73,8 @@ PNG export (`--save-figure x.png`) needs `pip install -r requirements-dashboard.
 Useful checks:
 
 ```bash
-PYTHONPATH=src python -m venus_basestation --mqtt-check --mqtt-min-messages 0   # login + subscribe only
-PYTHONPATH=src python -m venus_basestation --source mqtt --send-command idle     # one command, then exit
+python -m venus_basestation --mqtt-check --mqtt-min-messages 0   # login + subscribe only, no window
+python -m venus_basestation --source mqtt --send-command idle     # one command, then exit
 ```
 
 `python -m venus_basestation --help` lists all options. The accepted message fields are in
@@ -86,11 +85,12 @@ conventions in [`docs/team28-current-interface.md`](user-interface-module/docs/t
 
 ```bash
 cd user-interface-module
-pip install -r requirements-dev.txt
-python -m pytest -q        # 100 passed on Windows, Python 3.12
+pip install -e ".[dev,dashboard]"
+python -m pytest -q        # 109 passed on Windows, Python 3.12
 ```
 
-GitHub Actions runs the tests on Python 3.10 and 3.12 and replays the demo mission headless.
+The Tk window tests skip themselves when there is no display. GitHub Actions runs everything on
+Python 3.10 and 3.12 under Xvfb and replays the demo mission headless.
 
 ## Limits
 
