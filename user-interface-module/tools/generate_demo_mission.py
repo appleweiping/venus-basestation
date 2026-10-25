@@ -1,19 +1,20 @@
-"""Generate a deterministic demo mission JSONL (three robots exploring an arena).
+"""Generate the demo mission JSONL (three robots exploring an arena).
 
 The scene mimics the course setup: centimeter coordinates from a corner
 origin, a rectangular boundary, a mountain ridge, a cliff edge, scattered
-rock samples, and periodic status / sensor telemetry.
+rock samples, and periodic status / sensor telemetry. There is no randomness,
+so re-running it reproduces examples/demo_mission.jsonl byte for byte.
 
 Usage:
-    PYTHONPATH=src python tools/generate_demo_mission.py [examples/demo_mission.jsonl]
+    python tools/generate_demo_mission.py [--output examples/demo_mission.jsonl]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 from pathlib import Path
-import sys
 
 
 def build_messages() -> list[dict]:
@@ -119,10 +120,18 @@ def build_messages() -> list[dict]:
 
 
 def main() -> None:
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("examples/demo_mission.jsonl")
+    parser = argparse.ArgumentParser(description="Write the three-robot demo mission as JSONL.")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="examples/demo_mission.jsonl",
+        help="Output path (default: examples/demo_mission.jsonl).",
+    )
+    target = Path(parser.parse_args().output)
     target.parent.mkdir(parents=True, exist_ok=True)
     messages = build_messages()
-    target.write_text("\n".join(json.dumps(message) for message in messages) + "\n", encoding="utf-8")
+    text = "\n".join(json.dumps(message) for message in messages) + "\n"
+    target.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {len(messages)} messages to {target}")
 
 
