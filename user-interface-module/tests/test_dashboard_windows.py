@@ -7,6 +7,7 @@ CI runner without a display), so the core test suite stays dependency-free.
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 
 import pytest
 
@@ -80,3 +81,30 @@ def test_replay_stops_when_window_is_closed(monkeypatch, capsys) -> None:
 
     assert fake.draws == 5
     assert "processed 5 messages" in capsys.readouterr().out
+
+
+def test_headless_png_export_has_no_aspect_warnings(tmp_path: Path, monkeypatch) -> None:
+    pytest.importorskip("matplotlib")
+    output = tmp_path / "mission.png"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "venus_basestation",
+            "--source",
+            "jsonl",
+            "--jsonl-path",
+            str(DEMO),
+            "--headless",
+            "--save-figure",
+            str(output),
+        ],
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        main()
+
+    assert output.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert not [w for w in caught if "Ignoring fixed" in str(w.message)]
+    assert not [w for w in caught if "non-interactive" in str(w.message)]
+

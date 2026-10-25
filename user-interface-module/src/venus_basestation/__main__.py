@@ -122,6 +122,7 @@ def main() -> None:
         args.ui,
         needs_dashboard,
         allow_matplotlib_export=figure_path is not None and not wants_svg_only,
+        interactive=wants_window,
         theme=args.theme,
     )
 
@@ -354,12 +355,14 @@ def _finish(state: MapState, dashboard, save_figure: str | None, save_state: str
         dashboard.show()
 
 
-def _build_dashboard(ui: str, needs_dashboard: bool, *, allow_matplotlib_export: bool, theme: str = "dark"):
+def _build_dashboard(
+    ui: str, needs_dashboard: bool, *, allow_matplotlib_export: bool, interactive: bool = True, theme: str = "dark"
+):
     if not needs_dashboard:
         return None
     if ui == "tk" and not allow_matplotlib_export:
         return TkDashboard(theme=theme)
-    return MatplotlibDashboard()
+    return MatplotlibDashboard(interactive=interactive)
 
 
 if __name__ == "__main__":

@@ -17,24 +17,46 @@ OBJECT_STYLES = {
 
 
 class MatplotlibDashboard:
-    def __init__(self) -> None:
+    """Matplotlib map view.
+
+    With ``interactive=False`` (headless PNG export) no window is opened: the
+    figure is drawn once, when it is saved, instead of after every message.
+    """
+
+    def __init__(self, *, interactive: bool = True) -> None:
         try:
-            import matplotlib.pyplot as plt
+            if interactive:
+                import matplotlib.pyplot as plt
+            else:
+                from matplotlib.figure import Figure
         except ModuleNotFoundError as exc:  # pragma: no cover - dependency guidance
             raise SystemExit(
                 "matplotlib is required for the dashboard. Run `pip install -r requirements-dashboard.txt` first."
             ) from exc
 
-        self.plt = plt
-        self.figure, self.axis = plt.subplots(figsize=(8, 7))
+        self.interactive = interactive
+        self._state: MapState | None = None
+        if interactive:
+            self.plt = plt
+            self.figure, self.axis = plt.subplots(figsize=(8, 7))
+        else:
+            self.plt = None
+            self.figure = Figure(figsize=(8, 7))
+            self.axis = self.figure.subplots()
 
     def draw(self, state: MapState) -> None:
+        self._state = state
+        if self.interactive:
+            self._paint(state)
+            self.plt.pause(0.01)
+
+    def _paint(self, state: MapState) -> None:
         self.axis.clear()
         self.axis.set_title(f"Venus Basestation - {state.messages_seen} messages")
         self.axis.set_xlabel("x")
         self.axis.set_ylabel("y")
         self.axis.grid(True, alpha=0.25)
-        self.axis.set_aspect("equal", adjustable="datalim")
+        self.axis.set_aspect("equal", adjustable="box")
         bounds = state.bounds()
         if bounds:
             min_x, max_x, min_y, max_y = bounds
@@ -69,12 +91,14 @@ class MatplotlibDashboard:
 
         if state.robots:
             self.axis.legend(loc="upper left")
-        self.plt.pause(0.01)
 
     def show(self) -> None:
-        self.plt.show()
+        if self.plt is not None:
+            self.plt.show()
 
     def save(self, path: str) -> None:
+        if self._state is not None:
+            self._paint(self._state)
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         self.figure.tight_layout()
