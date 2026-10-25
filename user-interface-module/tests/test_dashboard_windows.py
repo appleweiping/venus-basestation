@@ -57,6 +57,26 @@ def test_tk_close_button_stops_drawing(tk_dashboard) -> None:
     assert tk_dashboard.closed
 
 
+def test_tk_legend_canvas_fits_all_labels(tk_dashboard) -> None:
+    canvas = tk_dashboard.legend_canvas
+    right_edge = canvas.bbox("all")[2]
+    assert int(canvas["width"]) >= right_edge
+
+
+def test_tk_robot_labels_are_drawn_above_detections(tk_dashboard) -> None:
+    state = MapState()
+    state.apply(parse_observation({"robot_id": "robot_28_1", "event_type": "robot_position", "x": 150, "y": 77}))
+    state.apply(
+        parse_observation(
+            {"robot_id": "robot_15_1", "event_type": "rock", "x": 152, "y": 78, "color": "red", "size": "large"}
+        )
+    )
+    tk_dashboard.draw(state)
+    tk_dashboard._render()
+    top_item = tk_dashboard.canvas.find_all()[-1]
+    assert "robot_label" in tk_dashboard.canvas.gettags(top_item)
+
+
 def test_replay_stops_when_window_is_closed(monkeypatch, capsys) -> None:
     class ClosingDashboard:
         """Stands in for the Tk window; the user closes it after 5 messages."""

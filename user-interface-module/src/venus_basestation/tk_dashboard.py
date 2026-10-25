@@ -503,6 +503,8 @@ class TkDashboard:
             text_id = canvas.create_text(x + 14, cy, text=label, anchor="w", fill=t.text_faint, font=self._font_small)
             bbox = canvas.bbox(text_id)
             x = (bbox[2] if bbox else x + 40) + 12
+        # Size the canvas to its contents so the last label is not clipped.
+        canvas.config(width=x)
 
     def _bind_events(self) -> None:
         self.canvas.bind("<Configure>", lambda event: self._mark_dirty())
@@ -752,6 +754,8 @@ class TkDashboard:
         self._draw_grid(width, height)
         self._draw_tracks(state)
         self._draw_objects(state)
+        # Robot name chips stay readable when a detection label lands on them.
+        canvas.tag_raise("robot_label")
 
         if self._view_locked:
             canvas.create_text(
@@ -822,12 +826,20 @@ class TkDashboard:
                 canvas.create_line(px, py, hx, hy, fill=color, width=2, arrow=self.tk.LAST)
 
             label = robot_id if track.heading is None else f"{robot_id} · {track.heading:.0f}°"
-            text_id = canvas.create_text(px + 12, py - 16, text=label, anchor="w", fill=t.text, font=self._font_h2)
+            text_id = canvas.create_text(
+                px + 12, py - 16, text=label, anchor="w", fill=t.text, font=self._font_h2, tags=("robot_label",)
+            )
             bbox = canvas.bbox(text_id)
             if bbox:
                 pad = 3
                 chip = canvas.create_rectangle(
-                    bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad, fill=t.panel, outline=t.border
+                    bbox[0] - pad,
+                    bbox[1] - pad,
+                    bbox[2] + pad,
+                    bbox[3] + pad,
+                    fill=t.panel,
+                    outline=t.border,
+                    tags=("robot_label",),
                 )
                 canvas.tag_lower(chip, text_id)
 
